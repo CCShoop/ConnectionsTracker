@@ -50,7 +50,6 @@ class ConnectionsTrackerClient(Client):
             self.registered = True
             self.completedToday = False
             self.succeededToday = False
-            self.filePath = ''
 
 
     def __init__(self, intents):
@@ -252,7 +251,6 @@ async def on_message(message: discord.Message):
         return
 
     if 'Connections' in message.content and 'Puzzle #' in message.content and ('🟨' in message.content or '🟩' in message.content or '🟦' in message.content or '🟪' in message.content):
-        await message.delete()
         # no registered players
         if not client.players:
             await message.channel.send(f'{message.author.mention}, there are no registered players! Please register and resend your results to be the first.')
@@ -282,7 +280,7 @@ async def on_message(message: discord.Message):
         await client.process(message, player)
 
     for player in client.players:
-        if player.registered and (not player.completedToday or player.filePath == ''):
+        if player.registered and not player.completedToday:
             return
     scoreboard = ''
     for line in client.tally_scores():
