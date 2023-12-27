@@ -396,7 +396,8 @@ async def stats_command(interaction: Interaction, sort_by:Literal['Connections A
         stats += f'\t{player.totalGuessCount} Total guesses\n'
         stats += f'\t{player.connectionCount} Successful connections\n'
         stats += f'\t{player.subConnectionCount} Successful subconnections\n'
-        stats += f'\t{player.mistakes} Mistakes\n'
+        stats += f'\t{player.mistakeCount} Mistakes\n'
+    interaction.response.send_message(stats)
 
 
 @tasks.loop(seconds=1)
