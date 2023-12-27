@@ -6,7 +6,7 @@ import random
 import discord
 import datetime
 from dotenv import load_dotenv
-from discord import app_commands, Intents, Client, File, Interaction
+from discord import app_commands, Intents, Client, File, Interaction, TextChannel
 from discord.ext import tasks
 
 load_dotenv()
@@ -46,6 +46,7 @@ class ConnectionsTrackerClient(Client):
             self.name = name
             self.score = 0
             self.winCount = 0
+            self.connectionCount = 0
             self.registered = True
             self.completedToday = False
             self.succeededToday = False
@@ -55,7 +56,7 @@ class ConnectionsTrackerClient(Client):
     def __init__(self, intents):
         super(ConnectionsTrackerClient, self).__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
-        self.text_channel = 0
+        self.text_channel: TextChannel
         self.puzzle_number = 0
         self.scored_today = False
         self.sent_warning = False
@@ -70,8 +71,8 @@ class ConnectionsTrackerClient(Client):
                 data = json.load(file)
                 for firstField, secondField in data.items():
                     if firstField == 'text_channel':
-                        self.text_channel = secondField['text_channel']
-                        print(f'{get_log_time()}> Got text channel id of {self.text_channel}')
+                        self.text_channel = self.get_channel(int(secondField['text_channel']))
+                        print(f'{get_log_time()}> Got text channel id of {self.text_channel.id}')
                     elif firstField == 'puzzle_number':
                         self.puzzle_number = secondField['puzzle_number']
                         print(f'{get_log_time()}> Got day number of {self.puzzle_number}')
@@ -81,6 +82,7 @@ class ConnectionsTrackerClient(Client):
                     else:
                         load_player = self.Player(firstField)
                         load_player.winCount = secondField['winCount']
+                        load_player.connectionCount = secondField['connectionCount']
                         load_player.score = secondField['score']
                         load_player.registered = secondField['registered']
                         load_player.completedToday = secondField['completedToday']
@@ -92,25 +94,27 @@ class ConnectionsTrackerClient(Client):
                         if not playerExists:
                             self.players.append(load_player)
                         print(f'{get_log_time()}> Loaded player {load_player.name} - '
-                                f'wins: {load_player.winCount}, '
-                                f'score: {load_player.score}, '
-                                f'registered: {load_player.registered}, '
-                                f'completed: {load_player.completedToday}, '
-                                f'succeeded: {load_player.succeededToday}')
+                              f'wins: {load_player.winCount}, '
+                              f'connections: {load_player.connectionCount}, '
+                              f'score: {load_player.score}, '
+                              f'registered: {load_player.registered}, '
+                              f'completed: {load_player.completedToday}, '
+                              f'succeeded: {load_player.succeededToday}')
                 print(f'{get_log_time()}> Successfully loaded {self.FILENAME}')
 
 
     def write_json_file(self):
         data = {}
-        data['text_channel'] = {'text_channel': self.text_channel}
+        data['text_channel'] = {'text_channel': self.text_channel.id}
         data['puzzle_number'] = {'puzzle_number': self.puzzle_number}
         data['scored_today'] = {'scored_today': self.scored_today}
         for player in self.players:
             data[player.name] = {'winCount': player.winCount,
-                                    'score': player.score,
-                                    'registered': player.registered,
-                                    'completedToday': player.completedToday,
-                                    'succeededToday': player.succeededToday}
+                                 'connectionCount': player.connectionCount,
+                                 'score': player.score,
+                                 'registered': player.registered,
+                                 'completedToday': player.completedToday,
+                                 'succeededToday': player.succeededToday}
         json_data = json.dumps(data)
         print(f'{get_log_time()}> Writing {self.FILENAME}')
         with open(self.FILENAME, 'w+', encoding='utf-8') as file:
@@ -150,6 +154,7 @@ class ConnectionsTrackerClient(Client):
                     player.score += weight + 3
                 weight -= 1
             if gotYellow and gotGreen and gotBlue and gotPurple:
+                player.completionCount += 1
                 player.succeededToday = True
             print(f'{get_log_time()}> Player {player.name} - score: {player.score}, succeeded: {player.succeededToday}')
 
@@ -170,13 +175,58 @@ class ConnectionsTrackerClient(Client):
             return
 
         print(f'{get_log_time()}> Tallying scores')
-        winners = [] # list of winners - the one/those with the lowest score
-        losers = [] # list of losers - people who didn't successfully guess the word
+        connections_players = [] # list of players who are registered and completed the connections
+        winners = [] # list of winners - the one/those with the highest score
+        losers = [] # list of losers - those who didn't win
         results = [] # list of strings - the scoreboard to print out
         results.append('CONNECTIONS COMPLETE!\n\n**SCOREBOARD:**\n')
 
+        for player in self.players:
+            if player.registered and player.completedToday:
+                connections_players.append(player)
+        connections_players.sort(key=get_score)
+
+        if connections_players[0].score > 0:
+            for player in connections_players.copy():
+                if player.score == connections_players[0].score:
+                    player.winCount += 1
+                    winners.append(player)
+                else:
+                    break
+
+        placeCounter = 2
+        for player in connections_players:
+            subResult = ''
+            if player in winners:
+                subResult = f'1. {player.name} '
+            else:
+                subResult = f'{placeCounter}. {player.name} '
+                placeCounter += 1
+            if player.winCount == 1:
+                subResult += '(1 win, '
+            else:
+                subResult += f'({player.winCount} wins, '
+            if player.connectionCount == 1:
+                subResult += '1 connection) '
+            else:
+                subResult += f'{player.connectionCount} connections) '
+            if player.succeededToday:
+                subResult += 'got all of the connections '
+                if player in winners:
+                    subResult += ' and wins '
+            else:
+                subResult += 'did not get all of the connections '
+                if player in winners:
+                    subResult += ' but wins '
+            subResult += f'with a score of {player.score}'
+            if player in winners:
+                subResult += '!\n'
+            else:
+                subResult += '.\n'
+            results.append(subResult)
+
         self.write_json_file()
-        return results + losers
+        return results
 
     async def setup_hook(self):
         await self.tree.sync()
@@ -198,7 +248,7 @@ async def on_ready():
 @client.event
 async def on_message(message: discord.Message):
     # message is from this bot or not in dedicated text channel
-    if message.channel.id != client.text_channel or message.author == client.user or client.scored_today:
+    if message.author == client.user or client.scored_today:
         return
 
     if 'Connections' in message.content and 'Puzzle #' in message.content and ('🟨' in message.content or '🟩' in message.content or '🟦' in message.content or '🟪' in message.content):
@@ -225,7 +275,7 @@ async def on_message(message: discord.Message):
             return
 
         # set channel
-        client.text_channel = int(message.channel.id)
+        client.text_channel = message.channel
         client.write_json_file()
 
         # process player's results
@@ -242,7 +292,7 @@ async def on_message(message: discord.Message):
 
 @client.tree.command(name='register', description='Register for Connections tracking.')
 async def register_command(interaction: Interaction):
-    client.text_channel = int(interaction.channel.id)
+    client.text_channel = interaction.channel
     client.write_json_file()
     response = ''
     playerFound = False
@@ -268,7 +318,7 @@ async def register_command(interaction: Interaction):
 
 @client.tree.command(name='deregister', description='Deregister from Connections tracking. Use twice to delete saved data.')
 async def deregister_command(interaction: Interaction):
-    client.text_channel = int(interaction.channel.id)
+    client.text_channel = interaction.channel
     client.write_json_file()
     players_copy = client.players.copy()
     response = ''
@@ -278,7 +328,7 @@ async def deregister_command(interaction: Interaction):
             if player.registered:
                 player.registered = False
                 print(f'{get_log_time()}> Deregistered user {player.name}')
-                response += 'You have been deregistered for Connections tracking.'
+                response += 'You have been deregistered for Connections tracking. Deregistering a second time will delete your saved data.'
             else:
                 client.players.remove(player)
                 print(f'{get_log_time()}> Deleted data for user {player.name}')
@@ -296,7 +346,6 @@ async def midnight_call():
     if not client.players:
         return
 
-    channel = client.get_channel(int(client.text_channel))
     hour, minute = get_time()
     if client.sent_warning and hour == 23 and minute == 1:
         client.sent_warning = False
@@ -307,7 +356,7 @@ async def midnight_call():
                 user = discord.utils.get(client.users, name=player.name)
                 warning += f'{user.mention} '
         if warning != '':
-            await channel.send(f'{warning}, you have one hour left to do the Connections!')
+            await client.text_channel.send(f'{warning}, you have one hour left to do the Connections!')
         client.sent_warning = True
 
     if client.midnight_called and hour == 0 and minute == 1:
@@ -329,19 +378,11 @@ async def midnight_call():
                 else:
                     print(f'{get_log_time()}> Failed to mention user {player.name}')
         if shamed != '':
-            await channel.send(f'SHAME ON {shamed} FOR NOT DOING THE CONNECTIONS!')
+            await client.text_channel.send(f'SHAME ON {shamed} FOR NOT DOING THE CONNECTIONS!')
         scoreboard = ''
         for line in client.tally_scores():
             scoreboard += line
-        await channel.send(scoreboard)
-        for player in client.players:
-            if player.registered and player.filePath != '':
-                await channel.send(content=f'__{player.name}:__', file=File(player.filePath))
-                try:
-                    os.remove(player.filePath)
-                except OSError as e:
-                    print(f'Error deleting {player.filePath}: {e}')
-                player.filePath = ''
+        await client.text_channel.send(scoreboard)
 
     client.scored_today = False
     everyone = ''
@@ -355,6 +396,7 @@ async def midnight_call():
                 everyone += f'{user.mention} '
         else:
             print(f'{get_log_time()}> Failed to mention user {player.name}')
-    await channel.send(f'{everyone}\nIt\'s time to find the Connections #{self.puzzle_number}!\nhttps://www.nytimes.com/games/connections')
+    self.puzzle_number += 1
+    await client.text_channel.send(f'{everyone}\nIt\'s time to find the Connections #{self.puzzle_number}!\nhttps://www.nytimes.com/games/connections')
 
 client.run(discord_token)
