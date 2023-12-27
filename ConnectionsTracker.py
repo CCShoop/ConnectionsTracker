@@ -207,12 +207,12 @@ class ConnectionsTrackerClient(Client):
             print('No players to score')
             return
 
-        print(f'{get_log_time()}> Tallying scores')
+        print(f'{get_log_time()}> Tallying scores for puzzle #{self.puzzle_number}')
         connections_players = [] # list of players who are registered and completed the connections
         winners = [] # list of winners - the one/those with the highest score
         losers = [] # list of losers - those who didn't win
         results = [] # list of strings - the scoreboard to print out
-        results.append('CONNECTIONS COMPLETE!\n\n**SCOREBOARD:**\n')
+        results.append(f'CONNECTIONS #{self.puzzle_number} COMPLETE!\n\n**SCOREBOARD:**\n')
 
         for player in self.players:
             if player.registered and player.completedToday:
