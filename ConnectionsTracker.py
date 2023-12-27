@@ -149,9 +149,9 @@ class ConnectionsTrackerClient(Client):
     async def process(self, message: discord.Message, player: Player):
         try:
             parseMsg = []
-            for line in message.content:
+            for line in message.content.split('\n'):
                 if 'Puzzle #' in line:
-                    print(f'{get_log_time()}> player.name submitted results for puzzle #{line.split("#")[1]}')
+                    print(f'{get_log_time()}> {player.name} submitted results for puzzle #{line.split("#")[1]}')
                     puzzleNum = int(line.split('#')[1])
                     if puzzleNum != self.puzzle_number:
                         await message.channel.send_message(f'The current puzzle # is {self.puzzle_number}. Your submission for puzzle #{puzzleNum} has not been accepted.')
@@ -159,6 +159,7 @@ class ConnectionsTrackerClient(Client):
                 elif '🟪' in line or '🟩' in line or '🟦' in line or '🟨' in line:
                     parseMsg.append(line)
             player.connectionAttemptCount += 1
+            subConnectionsToday = 0
             player.score = 0
             gotYellow = False
             gotGreen = False
@@ -166,22 +167,27 @@ class ConnectionsTrackerClient(Client):
             gotPurple = False
             weight = 6
             for guess in parseMsg:
+                print(f'{get_log_time()}> parsing guess :{guess}')
                 player.totalGuessCount += 1
                 if '🟨🟨🟨🟨' in guess:
                     gotYellow = True
                     player.subConnectionCount += 1
+                    subConnectionsToday += 1
                     player.score += weight # + difficulty tweak
                 elif '🟩🟩🟩🟩' in guess:
                     gotGreen = True
                     player.subConnectionCount += 1
+                    subConnectionsToday += 1
                     player.score += weight + 1
                 elif '🟦🟦🟦🟦' in guess:
                     gotBlue = True
                     player.subConnectionCount += 1
+                    subConnectionsToday += 1
                     player.score += weight + 2
                 elif '🟪🟪🟪🟪' in guess:
                     gotPurple = True
                     player.subConnectionCount += 1
+                    subConnectionsToday += 1
                     player.score += weight + 3
                 else:
                     player.mistakeCount += 1
@@ -194,9 +200,9 @@ class ConnectionsTrackerClient(Client):
             player.completedToday = True
             client.write_json_file()
             if player.succeededToday:
-                await message.channel.send(f'{message.author.name} made all the connections with a score of {player.score}.\n')
+                await message.channel.send(f'{message.author.name} made the connections with a score of {player.score}!\n')
             else:
-                await message.channel.send(f'{message.author.name} did not make all the connections with a score of {player.score}.\n')
+                await message.channel.send(f'{message.author.name} made {subConnectionsToday} subconnections with a score of {player.score}.\n')
         except:
             print(f'{get_log_time()}> User {player.name} submitted invalid result message')
             await message.channel.send(f'{player.name}, you sent a Connections results message with invalid syntax. Please try again.')
@@ -213,6 +219,7 @@ class ConnectionsTrackerClient(Client):
         losers = [] # list of losers - those who didn't win
         results = [] # list of strings - the scoreboard to print out
         results.append(f'CONNECTIONS #{self.puzzle_number} COMPLETE!\n\n**SCOREBOARD:**\n')
+        placeCounter = 2
 
         for player in self.players:
             if player.registered and player.completedToday:
@@ -226,8 +233,9 @@ class ConnectionsTrackerClient(Client):
                     winners.append(player)
                 else:
                     break
+        else:
+            placeCounter = 1
 
-        placeCounter = 2
         for player in connections_players:
             subResult = ''
             if player in winners:
@@ -236,21 +244,17 @@ class ConnectionsTrackerClient(Client):
                 subResult = f'{placeCounter}. {player.name} '
                 placeCounter += 1
             if player.winCount == 1:
-                subResult += '(1 win, '
+                subResult += '(1 win) '
             else:
-                subResult += f'({player.winCount} wins, '
-            if player.connectionCount == 1:
-                subResult += '1 connection) '
-            else:
-                subResult += f'{player.connectionCount} connections) '
+                subResult += f'({player.winCount} wins) '
             if player.succeededToday:
-                subResult += 'got all of the connections '
+                subResult += 'got the connections '
                 if player in winners:
-                    subResult += ' and wins '
+                    subResult += 'and wins '
             else:
-                subResult += 'did not get all of the connections '
+                subResult += 'did not get all of the subconnections '
                 if player in winners:
-                    subResult += ' but wins '
+                    subResult += 'but wins '
             subResult += f'with a score of {player.score}'
             if player in winners:
                 subResult += '!\n'
@@ -370,6 +374,8 @@ async def deregister_command(interaction: Interaction):
     if not playerFound:
         print(f'{get_log_time()}> Non-existant user {interaction.user.name.strip()} attempted to deregister')
         response += 'You have no saved data for Connections tracking.'
+    if not client.players:
+        client.scored_today = False
     await interaction.response.send_message(response)
 
 
