@@ -113,7 +113,7 @@ class ConnectionsTrackerClient(Client):
                         print(f'{get_log_time()}> Loaded player {load_player.name}\n'
                               f'\t\t\twins: {load_player.winCount}\n'
                               f'\t\t\tconnections: {load_player.connectionCount}\n'
-                              f'\t\t\tsubConnections: {load_PLAYER.subConnectionCount}\n'
+                              f'\t\t\tsubConnections: {load_player.subConnectionCount}\n'
                               f'\t\t\tmistakes: {load_player.mistakeCount}\n'
                               f'\t\t\tattempts: {load_player.connectionAttemptCount}\n'
                               f'\t\t\ttotalGuesses: {load_player.totalGuessCount}\n'
