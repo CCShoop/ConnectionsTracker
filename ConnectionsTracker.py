@@ -6,6 +6,7 @@ import random
 import discord
 import datetime
 from dotenv import load_dotenv
+from typing import Literal
 from discord import app_commands, Intents, Client, File, Interaction, TextChannel
 from discord.ext import tasks
 
@@ -36,7 +37,16 @@ def get_log_time():
 
 def get_score(player):
     return player.score
-
+def get_con_attempts(player):
+    return player.connectionAttemptCount
+def get_tot_guesses(player):
+    return player.totalGuessCount
+def get_cons(player):
+    return player.connectionCount
+def get_sub_cons(player):
+    return player.subConnectionCount
+def get_mistakes(player):
+    return player.mistakeCount
 
 class ConnectionsTrackerClient(Client):
     FILENAME = 'info.json'
@@ -47,6 +57,10 @@ class ConnectionsTrackerClient(Client):
             self.score = 0
             self.winCount = 0
             self.connectionCount = 0
+            self.subConnectionCount = 0
+            self.mistakeCount = 0
+            self.connectionAttemptCount = 0
+            self.totalGuessCount = 0
             self.registered = True
             self.completedToday = False
             self.succeededToday = False
@@ -82,6 +96,10 @@ class ConnectionsTrackerClient(Client):
                         load_player = self.Player(firstField)
                         load_player.winCount = secondField['winCount']
                         load_player.connectionCount = secondField['connectionCount']
+                        load_player.subConnectionCount = secondField['subConnectionCount']
+                        load_player.mistakeCount = secondField['mistakeCount']
+                        load_player.connectionAttemptCount = secondField['connectionAttemptCount']
+                        load_player.totalGuessCount = secondField['totalGuessCount']
                         load_player.score = secondField['score']
                         load_player.registered = secondField['registered']
                         load_player.completedToday = secondField['completedToday']
@@ -92,13 +110,17 @@ class ConnectionsTrackerClient(Client):
                                 playerExists = True
                         if not playerExists:
                             self.players.append(load_player)
-                        print(f'{get_log_time()}> Loaded player {load_player.name} - '
-                              f'wins: {load_player.winCount}, '
-                              f'connections: {load_player.connectionCount}, '
-                              f'score: {load_player.score}, '
-                              f'registered: {load_player.registered}, '
-                              f'completed: {load_player.completedToday}, '
-                              f'succeeded: {load_player.succeededToday}')
+                        print(f'{get_log_time()}> Loaded player {load_player.name}\n'
+                              f'\t\t\twins: {load_player.winCount}\n'
+                              f'\t\t\tconnections: {load_player.connectionCount}\n'
+                              f'\t\t\tsubConnections: {load_PLAYER.subConnectionCount}\n'
+                              f'\t\t\tmistakes: {load_player.mistakeCount}\n'
+                              f'\t\t\tattempts: {load_player.connectionAttemptCount}\n'
+                              f'\t\t\ttotalGuesses: {load_player.totalGuessCount}\n'
+                              f'\t\t\tscore: {load_player.score}\n'
+                              f'\t\t\tregistered: {load_player.registered}\n'
+                              f'\t\t\tcompleted: {load_player.completedToday}\n'
+                              f'\t\t\tsucceeded: {load_player.succeededToday}')
                 print(f'{get_log_time()}> Successfully loaded {self.FILENAME}')
 
 
@@ -110,6 +132,10 @@ class ConnectionsTrackerClient(Client):
         for player in self.players:
             data[player.name] = {'winCount': player.winCount,
                                  'connectionCount': player.connectionCount,
+                                 'subConnectionCount': player.subConnectionCount,
+                                 'connectionAttemptCount': player.connectionAttemptCount,
+                                 'mistakeCount': player.mistakeCount,
+                                 'totalGuessCount': player.totalGuessCount,
                                  'score': player.score,
                                  'registered': player.registered,
                                  'completedToday': player.completedToday,
@@ -132,6 +158,7 @@ class ConnectionsTrackerClient(Client):
                         return
                 elif '🟪' in line or '🟩' in line or '🟦' in line or '🟨' in line:
                     parseMsg.append(line)
+            player.connectionAttemptCount += 1
             player.score = 0
             gotYellow = False
             gotGreen = False
@@ -139,18 +166,25 @@ class ConnectionsTrackerClient(Client):
             gotPurple = False
             weight = 6
             for guess in parseMsg:
+                player.totalGuessCount += 1
                 if '🟨🟨🟨🟨' in guess:
                     gotYellow = True
+                    player.subConnectionCount += 1
                     player.score += weight # + difficulty tweak
                 elif '🟩🟩🟩🟩' in guess:
                     gotGreen = True
+                    player.subConnectionCount += 1
                     player.score += weight + 1
                 elif '🟦🟦🟦🟦' in guess:
                     gotBlue = True
+                    player.subConnectionCount += 1
                     player.score += weight + 2
                 elif '🟪🟪🟪🟪' in guess:
                     gotPurple = True
+                    player.subConnectionCount += 1
                     player.score += weight + 3
+                else:
+                    player.mistakeCount += 1
                 weight -= 1
             if gotYellow and gotGreen and gotBlue and gotPurple:
                 player.completionCount += 1
@@ -337,6 +371,32 @@ async def deregister_command(interaction: Interaction):
         print(f'{get_log_time()}> Non-existant user {interaction.user.name.strip()} attempted to deregister')
         response += 'You have no saved data for Connections tracking.'
     await interaction.response.send_message(response)
+
+
+@client.tree.command(name='stats', description='Show stats for all players.')
+@app_commands.describe(sort_by='Select the stat you want to sort by.')
+async def stats_command(interaction: Interaction, sort_by:Literal['Connections Attempted', 'Total Guesses', 'Connections', 'Subconnections', 'Mistakes'] = 'Connections Attempted'):
+    client.text_channel = interaction.channel
+    client.write_json_file()
+    players_copy = client.players.copy()
+    stats = ''
+    if sort_by == 'Connections Attempted':
+        players_copy.sort(key=get_con_attempts)
+    elif sort_by == 'Total Guesses':
+        players_copy.sort(key=get_tot_guesses)
+    elif sort_by == 'Connections':
+        players_copy.sort(key=get_cons)
+    elif sort_by == 'Subconnections':
+        players_copy.sort(key=get_sub_cons)
+    elif sort_by == 'Mistakes':
+        players_copy.sort(key=get_mistakes)
+    for player in players_copy:
+        stats += f'{player.name}\n'
+        stats += f'\t{player.connectionAttemptCount} Submissions\n'
+        stats += f'\t{player.totalGuessCount} Total guesses\n'
+        stats += f'\t{player.connectionCount} Successful connections\n'
+        stats += f'\t{player.subConnectionCount} Successful subconnections\n'
+        stats += f'\t{player.mistakes} Mistakes\n'
 
 
 @tasks.loop(seconds=1)
