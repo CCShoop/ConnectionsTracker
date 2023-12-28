@@ -266,6 +266,7 @@ class ConnectionsTrackerClient(Client):
                 subResult += '.\n'
             results.append(subResult)
 
+        self.scored_today = True
         self.write_json_file()
         return results
 
@@ -324,10 +325,11 @@ async def on_message(message: discord.Message):
     for player in client.players:
         if player.registered and not player.completedToday:
             return
-    scoreboard = ''
-    for line in client.tally_scores():
-        scoreboard += line
-    await message.channel.send(scoreboard)
+    if not client.scored_today:
+        scoreboard = ''
+        for line in client.tally_scores():
+            scoreboard += line
+        await message.channel.send(scoreboard)
 
 
 @client.tree.command(name='register', description='Register for Connections tracking.')
