@@ -388,7 +388,7 @@ async def stats_command(interaction: Interaction, sort_by:Literal['Wins', 'Conne
     client.text_channel = interaction.channel
     client.write_json_file()
     players_copy = client.players.copy()
-    stats = ''
+    stats = f'Sorting by {sort_by}\n'
     if sort_by == 'Wins':
         players_copy.sort(key=get_wins, reverse=True)
     elif sort_by == 'Connections Attempted':
