@@ -165,7 +165,7 @@ class ConnectionsTrackerClient(Client):
             gotGreen = False
             gotBlue = False
             gotPurple = False
-            weight = 8
+            weight = 7
             for guess in parseMsg:
                 player.totalGuessCount += 1
                 if '🟨🟨🟨🟨' in guess:
