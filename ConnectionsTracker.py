@@ -165,32 +165,30 @@ class ConnectionsTrackerClient(Client):
             gotGreen = False
             gotBlue = False
             gotPurple = False
-            weight = 7
             for guess in parseMsg:
                 player.totalGuessCount += 1
                 if '🟨🟨🟨🟨' in guess:
                     gotYellow = True
                     player.subConnectionCount += 1
                     subConnectionsToday += 1
-                    player.score += weight # + difficulty tweak
+                    player.score += 1 # difficulty tweak
                 elif '🟩🟩🟩🟩' in guess:
                     gotGreen = True
                     player.subConnectionCount += 1
                     subConnectionsToday += 1
-                    player.score += weight + 1
+                    player.score += 2
                 elif '🟦🟦🟦🟦' in guess:
                     gotBlue = True
                     player.subConnectionCount += 1
                     subConnectionsToday += 1
-                    player.score += weight + 2
+                    player.score += 3
                 elif '🟪🟪🟪🟪' in guess:
                     gotPurple = True
                     player.subConnectionCount += 1
                     subConnectionsToday += 1
-                    player.score += weight + 3
+                    player.score += 4
                 else:
                     player.mistakeCount += 1
-                weight -= 1
             if gotYellow and gotGreen and gotBlue and gotPurple:
                 player.connectionCount += 1
                 player.succeededToday = True
