@@ -39,8 +39,8 @@ def get_score(player):
     return player.score
 def get_wins(player):
     return player.winCount
-def get_con_attempts(player):
-    return player.connectionAttemptCount
+def get_con_submissions(player):
+    return player.submissionCount
 def get_tot_guesses(player):
     return player.totalGuessCount
 def get_cons(player):
@@ -61,7 +61,7 @@ class ConnectionsTrackerClient(Client):
             self.connectionCount = 0
             self.subConnectionCount = 0
             self.mistakeCount = 0
-            self.connectionAttemptCount = 0
+            self.submissionCount = 0
             self.totalGuessCount = 0
             self.registered = True
             self.completedToday = False
@@ -100,7 +100,7 @@ class ConnectionsTrackerClient(Client):
                         load_player.connectionCount = secondField['connectionCount']
                         load_player.subConnectionCount = secondField['subConnectionCount']
                         load_player.mistakeCount = secondField['mistakeCount']
-                        load_player.connectionAttemptCount = secondField['connectionAttemptCount']
+                        load_player.submissionCount = secondField['submissionCount']
                         load_player.totalGuessCount = secondField['totalGuessCount']
                         load_player.score = secondField['score']
                         load_player.registered = secondField['registered']
@@ -117,7 +117,7 @@ class ConnectionsTrackerClient(Client):
                               f'\t\t\tconnections: {load_player.connectionCount}\n'
                               f'\t\t\tsubConnections: {load_player.subConnectionCount}\n'
                               f'\t\t\tmistakes: {load_player.mistakeCount}\n'
-                              f'\t\t\tattempts: {load_player.connectionAttemptCount}\n'
+                              f'\t\t\tsubmissions: {load_player.submissionCount}\n'
                               f'\t\t\ttotalGuesses: {load_player.totalGuessCount}\n'
                               f'\t\t\tscore: {load_player.score}\n'
                               f'\t\t\tregistered: {load_player.registered}\n'
@@ -135,7 +135,7 @@ class ConnectionsTrackerClient(Client):
             data[player.name] = {'winCount': player.winCount,
                                  'connectionCount': player.connectionCount,
                                  'subConnectionCount': player.subConnectionCount,
-                                 'connectionAttemptCount': player.connectionAttemptCount,
+                                 'submissionCount': player.submissionCount,
                                  'mistakeCount': player.mistakeCount,
                                  'totalGuessCount': player.totalGuessCount,
                                  'score': player.score,
@@ -160,7 +160,7 @@ class ConnectionsTrackerClient(Client):
                         return
                 elif '🟪' in line or '🟩' in line or '🟦' in line or '🟨' in line:
                     parseMsg.append(line)
-            player.connectionAttemptCount += 1
+            player.submissionCount += 1
             subConnectionsToday = 0
             player.score = 0
             gotYellow = False
@@ -384,15 +384,15 @@ async def deregister_command(interaction: Interaction):
 
 @client.tree.command(name='stats', description='Show stats for all players.')
 @app_commands.describe(sort_by='Select the stat you want to sort by.')
-async def stats_command(interaction: Interaction, sort_by:Literal['Wins', 'Connections Attempted', 'Total Guesses', 'Connections', 'Subconnections', 'Mistakes'] = 'Wins'):
+async def stats_command(interaction: Interaction, sort_by:Literal['Wins', 'Submissions', 'Total Guesses', 'Connections', 'Subconnections', 'Mistakes'] = 'Wins'):
     client.text_channel = interaction.channel
     client.write_json_file()
     players_copy = client.players.copy()
     stats = f'Sorting by {sort_by}\n'
     if sort_by == 'Wins':
         players_copy.sort(key=get_wins, reverse=True)
-    elif sort_by == 'Connections Attempted':
-        players_copy.sort(key=get_con_attempts, reverse=True)
+    elif sort_by == 'Submissions':
+        players_copy.sort(key=get_con_submissions, reverse=True)
     elif sort_by == 'Total Guesses':
         players_copy.sort(key=get_tot_guesses, reverse=True)
     elif sort_by == 'Connections':
@@ -403,12 +403,30 @@ async def stats_command(interaction: Interaction, sort_by:Literal['Wins', 'Conne
         players_copy.sort(key=get_mistakes)
     for player in players_copy:
         stats += f'{player.name}\n'
-        stats += f'\t{player.winCount} Wins\n'
-        stats += f'\t{player.connectionAttemptCount} Submissions\n'
-        stats += f'\t{player.totalGuessCount} Total guesses\n'
-        stats += f'\t{player.connectionCount} Successful connections\n'
-        stats += f'\t{player.subConnectionCount} Successful subconnections\n'
-        stats += f'\t{player.mistakeCount} Mistakes\n'
+        if player.winCount == 1:
+            stats += f'\t1 Win\n'
+        else:
+            stats += f'\t{player.winCount} Wins\n'
+        if player.submissionCount == 1:
+            stats += f'\t1 Submission\n'
+        else:
+            stats += f'\t{player.submissionCount} Submissions\n'
+        if player.totalGuessCount == 1:
+            stats += f'\t1 Total guess\n'
+        else:
+            stats += f'\t{player.totalGuessCount} Total guesses\n'
+        if player.connectionCount == 1:
+            stats += f'\t1 Successful connection\n'
+        else:
+            stats += f'\t{player.connectionCount} Successful connections\n'
+        if player.subConnectionCount == 1:
+            stats += f'\t1 Successful subconnection\n'
+        else:
+            stats += f'\t{player.subConnectionCount} Successful subconnections\n'
+        if player.mistakeCount == 1:
+            stats += f'\t1 Mistake\n'
+        else:
+            stats += f'\t{player.mistakeCount} Mistakes\n'
     await interaction.response.send_message(stats)
 
 
