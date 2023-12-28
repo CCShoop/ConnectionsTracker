@@ -213,9 +213,8 @@ class ConnectionsTrackerClient(Client):
 
 
     def tally_scores(self):
-        if not self.players:
-            print('No players to score')
-            return
+        if not self.players or self.scored_today:
+            return ''
 
         print(f'{get_log_time()}> Tallying scores for puzzle #{self.puzzle_number}')
         connections_players = [] # list of players who are registered and completed the connections
@@ -290,7 +289,7 @@ async def on_ready():
 @client.event
 async def on_message(message: discord.Message):
     # message is from this bot or not in dedicated text channel
-    if message.author == client.user or client.scored_today:
+    if message.channel.id != client.text_channel.id or message.author.bot or client.scored_today:
         return
 
     if 'Connections' in message.content and 'Puzzle #' in message.content and ('🟨' in message.content or '🟩' in message.content or '🟦' in message.content or '🟪' in message.content):
@@ -315,8 +314,6 @@ async def on_message(message: discord.Message):
             await message.channel.send(f'{player.name}, you have already submitted your results today.')
             return
 
-        # set channel
-        client.text_channel = message.channel
         client.write_json_file()
 
         # process player's results
