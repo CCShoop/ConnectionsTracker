@@ -37,6 +37,8 @@ def get_log_time():
 
 def get_score(player):
     return player.score
+def get_wins(player):
+    return player.winCount
 def get_con_attempts(player):
     return player.connectionAttemptCount
 def get_tot_guesses(player):
@@ -140,7 +142,7 @@ class ConnectionsTrackerClient(Client):
                                  'registered': player.registered,
                                  'completedToday': player.completedToday,
                                  'succeededToday': player.succeededToday}
-        json_data = json.dumps(data)
+        json_data = json.dumps(data, indent=4)
         print(f'{get_log_time()}> Writing {self.FILENAME}')
         with open(self.FILENAME, 'w+', encoding='utf-8') as file:
             file.write(json_data)
@@ -226,7 +228,7 @@ class ConnectionsTrackerClient(Client):
         for player in self.players:
             if player.registered and player.completedToday:
                 connections_players.append(player)
-        connections_players.sort(key=get_score)
+        connections_players.sort(key=get_score, reverse=True)
 
         if connections_players[0].score > 0:
             for player in connections_players.copy():
@@ -383,23 +385,26 @@ async def deregister_command(interaction: Interaction):
 
 @client.tree.command(name='stats', description='Show stats for all players.')
 @app_commands.describe(sort_by='Select the stat you want to sort by.')
-async def stats_command(interaction: Interaction, sort_by:Literal['Connections Attempted', 'Total Guesses', 'Connections', 'Subconnections', 'Mistakes'] = 'Connections Attempted'):
+async def stats_command(interaction: Interaction, sort_by:Literal['Wins', 'Connections Attempted', 'Total Guesses', 'Connections', 'Subconnections', 'Mistakes'] = 'Wins'):
     client.text_channel = interaction.channel
     client.write_json_file()
     players_copy = client.players.copy()
     stats = ''
-    if sort_by == 'Connections Attempted':
-        players_copy.sort(key=get_con_attempts)
+    if sort_by == 'Wins':
+        players_copy.sort(key=get_wins, reverse=True)
+    elif sort_by == 'Connections Attempted':
+        players_copy.sort(key=get_con_attempts, reverse=True)
     elif sort_by == 'Total Guesses':
-        players_copy.sort(key=get_tot_guesses)
+        players_copy.sort(key=get_tot_guesses, reverse=True)
     elif sort_by == 'Connections':
-        players_copy.sort(key=get_cons)
+        players_copy.sort(key=get_cons, reverse=True)
     elif sort_by == 'Subconnections':
-        players_copy.sort(key=get_sub_cons)
+        players_copy.sort(key=get_sub_cons, reverse=True)
     elif sort_by == 'Mistakes':
         players_copy.sort(key=get_mistakes)
     for player in players_copy:
         stats += f'{player.name}\n'
+        stats += f'\t{player.winCount} Wins\n'
         stats += f'\t{player.connectionAttemptCount} Submissions\n'
         stats += f'\t{player.totalGuessCount} Total guesses\n'
         stats += f'\t{player.connectionCount} Successful connections\n'
@@ -463,7 +468,9 @@ async def midnight_call():
                 everyone += f'{user.mention} '
         else:
             print(f'{get_log_time()}> Failed to mention user {player.name}')
-    self.puzzle_number += 1
+    client.puzzle_number += 1
     await client.text_channel.send(f'{everyone}\nIt\'s time to find the Connections #{self.puzzle_number}!\nhttps://www.nytimes.com/games/connections')
+    client.write_json_file()
+
 
 client.run(discord_token)
