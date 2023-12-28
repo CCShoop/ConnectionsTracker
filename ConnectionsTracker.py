@@ -165,9 +165,8 @@ class ConnectionsTrackerClient(Client):
             gotGreen = False
             gotBlue = False
             gotPurple = False
-            weight = 6
+            weight = 8
             for guess in parseMsg:
-                print(f'{get_log_time()}> parsing guess :{guess}')
                 player.totalGuessCount += 1
                 if '🟨🟨🟨🟨' in guess:
                     gotYellow = True
@@ -193,7 +192,7 @@ class ConnectionsTrackerClient(Client):
                     player.mistakeCount += 1
                 weight -= 1
             if gotYellow and gotGreen and gotBlue and gotPurple:
-                player.completionCount += 1
+                player.connectionCount += 1
                 player.succeededToday = True
             print(f'{get_log_time()}> Player {player.name} - score: {player.score}, succeeded: {player.succeededToday}')
 
