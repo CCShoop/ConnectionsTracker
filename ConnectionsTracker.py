@@ -169,21 +169,25 @@ class ConnectionsTrackerClient(Client):
                 player.totalGuessCount += 1
                 if '🟨🟨🟨🟨' in guess:
                     gotYellow = True
+                    await message.add_reaction('🟨')
                     player.subConnectionCount += 1
                     subConnectionsToday += 1
                     player.score += 1 # difficulty tweak
                 elif '🟩🟩🟩🟩' in guess:
                     gotGreen = True
+                    await message.add_reaction('🟩')
                     player.subConnectionCount += 1
                     subConnectionsToday += 1
                     player.score += 2
                 elif '🟦🟦🟦🟦' in guess:
                     gotBlue = True
+                    await message.add_reaction('🟦')
                     player.subConnectionCount += 1
                     subConnectionsToday += 1
                     player.score += 3
                 elif '🟪🟪🟪🟪' in guess:
                     gotPurple = True
+                    await message.add_reaction('🟪')
                     player.subConnectionCount += 1
                     subConnectionsToday += 1
                     player.score += 4
@@ -196,6 +200,7 @@ class ConnectionsTrackerClient(Client):
 
             player.completedToday = True
             client.write_json_file()
+            await message.add_reaction('👍')
             if player.succeededToday:
                 await message.channel.send(f'{message.author.name} made the connections with a score of {player.score}!\n')
             else:
