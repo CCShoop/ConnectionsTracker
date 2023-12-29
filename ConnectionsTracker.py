@@ -490,7 +490,7 @@ async def midnight_call():
         else:
             print(f'{get_log_time()}> Failed to mention user {player.name}')
     client.puzzle_number += 1
-    await client.text_channel.send(f'{everyone}\nIt\'s time to find the Connections #{self.puzzle_number}!\nhttps://www.nytimes.com/games/connections')
+    await client.text_channel.send(f'{everyone}\nIt\'s time to find the Connections #{client.puzzle_number}!\nhttps://www.nytimes.com/games/connections')
     client.write_json_file()
 
 
