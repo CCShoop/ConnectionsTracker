@@ -385,7 +385,7 @@ async def deregister_command(interaction: Interaction):
 @client.tree.command(name='stats', description='Show stats for all players.')
 @app_commands.describe(sort_by='Select the stat you want to sort by.')
 @app_commands.describe(show_x_players='Only show the first x number of players.')
-async def stats_command(interaction: Interaction, sort_by:Literal['Wins', 'Submissions', 'Total Guesses', 'Connections', 'Subconnections', 'Mistakes'] = 'Wins', show_x_players = 3):
+async def stats_command(interaction: Interaction, sort_by:Literal['Wins', 'Submissions', 'Total Guesses', 'Connections', 'Subconnections', 'Mistakes'] = 'Wins', show_x_players:int = 3):
     client.text_channel = interaction.channel
     client.write_json_file()
     players_copy = client.players.copy()
