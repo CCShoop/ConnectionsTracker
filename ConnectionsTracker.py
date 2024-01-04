@@ -156,7 +156,7 @@ class ConnectionsTrackerClient(Client):
                     print(f'{get_log_time()}> {player.name} submitted results for puzzle #{line.split("#")[1]}')
                     puzzleNum = int(line.split('#')[1])
                     if puzzleNum != self.puzzle_number:
-                        await message.channel.send_message(f'The current puzzle # is {self.puzzle_number}. Your submission for puzzle #{puzzleNum} has not been accepted.')
+                        await message.channel.send(f'The current puzzle # is {self.puzzle_number}. Your submission for puzzle #{puzzleNum} has not been accepted.')
                         return
                 elif '🟪' in line or '🟩' in line or '🟦' in line or '🟨' in line:
                     parseMsg.append(line)
@@ -202,11 +202,37 @@ class ConnectionsTrackerClient(Client):
 
             player.completedToday = True
             client.write_json_file()
-            await message.add_reaction('👍')
+            if player.score == 0:
+                await message.add_reaction('0️⃣')
+            elif player.score == 1:
+                await message.add_reaction('1️⃣')
+            elif player.score == 2:
+                await message.add_reaction('2️⃣')
+            elif player.score == 3:
+                await message.add_reaction('3️⃣')
+            elif player.score == 4:
+                await message.add_reaction('4️⃣')
+            elif player.score == 5:
+                await message.add_reaction('5️⃣')
+            elif player.score == 6:
+                await message.add_reaction('6️⃣')
+            elif player.score == 7:
+                await message.add_reaction('7️⃣')
+            elif player.score == 8:
+                await message.add_reaction('8️⃣')
+            elif player.score == 9:
+                await message.add_reaction('9️⃣')
+            elif player.score == 10:
+                await message.add_reaction('🔟')
             if player.succeededToday:
-                await message.channel.send(f'{message.author.name} made the connections with a score of {player.score}!\n')
+                await message.add_reaction('👍')
+                # await message.channel.send(f'{message.author.name} made the connections with a score of {player.score}!\n')
             else:
-                await message.channel.send(f'{message.author.name} made {subConnectionsToday} subconnections with a score of {player.score}.\n')
+                await message.add_reaction('👎')
+                # if subConnectionsToday == 1:
+                #     await message.channel.send(f'{message.author.name} made 1 subconnection with a score of {player.score}.\n')
+                # else:
+                #     await message.channel.send(f'{message.author.name} made {subConnectionsToday} subconnections with a score of {player.score}.\n')
         except:
             print(f'{get_log_time()}> User {player.name} submitted invalid result message')
             await message.channel.send(f'{player.name}, you sent a Connections results message with invalid syntax. Please try again.')
