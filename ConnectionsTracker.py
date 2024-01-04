@@ -2,12 +2,10 @@
 
 import os
 import json
-import random
-import discord
 import datetime
 from dotenv import load_dotenv
 from typing import Literal
-from discord import app_commands, Intents, Client, File, Interaction, TextChannel
+from discord import app_commands, Intents, Client, Message, Interaction, TextChannel, utils
 from discord.ext import tasks
 
 load_dotenv()
@@ -148,7 +146,7 @@ class ConnectionsTrackerClient(Client):
             file.write(json_data)
 
 
-    async def process(self, message: discord.Message, player: Player):
+    async def process(self, message: Message, player: Player):
         try:
             parseMsg = []
             for line in message.content.split('\n'):
@@ -313,7 +311,7 @@ async def on_ready():
 
 
 @client.event
-async def on_message(message: discord.Message):
+async def on_message(message: Message):
     # message is from this bot or not in dedicated text channel
     if message.channel.id != client.text_channel.id or message.author.bot or client.scored_today:
         return
@@ -472,7 +470,7 @@ async def midnight_call():
         warning = ''
         for player in client.players:
             if player.registered and not player.completedToday:
-                user = discord.utils.get(client.users, name=player.name)
+                user = utils.get(client.users, name=player.name)
                 warning += f'{user.mention} '
         if warning != '':
             await client.text_channel.send(f'{warning}, you have one hour left to do the Connections!')
@@ -491,7 +489,7 @@ async def midnight_call():
         shamed = ''
         for player in client.players:
             if player.registered and not player.completedToday:
-                user = discord.utils.get(client.users, name=player.name)
+                user = utils.get(client.users, name=player.name)
                 if user:
                     shamed += f'{user.mention} '
                 else:
@@ -509,7 +507,7 @@ async def midnight_call():
         player.score = 0
         player.completedToday = False
         player.succeededToday = False
-        user = discord.utils.get(client.users, name=player.name)
+        user = utils.get(client.users, name=player.name)
         if user:
             if player.registered:
                 everyone += f'{user.mention} '
