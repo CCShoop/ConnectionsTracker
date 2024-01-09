@@ -93,6 +93,9 @@ class ConnectionsTrackerClient(Client):
                         self.scored_today = secondField['scored_today']
                         print(f'{get_log_time()}> Got scored today value of {self.scored_today}')
                     else:
+                        for player in self.players:
+                            if firstField == player.name:
+                                continue
                         load_player = self.Player(firstField)
                         load_player.winCount = secondField['winCount']
                         load_player.connectionCount = secondField['connectionCount']
@@ -104,12 +107,7 @@ class ConnectionsTrackerClient(Client):
                         load_player.registered = secondField['registered']
                         load_player.completedToday = secondField['completedToday']
                         load_player.succeededToday = secondField['succeededToday']
-                        playerExists = False
-                        for player in self.players:
-                            if load_player.name == player.name:
-                                playerExists = True
-                        if not playerExists:
-                            self.players.append(load_player)
+                        self.players.append(load_player)
                         print(f'{get_log_time()}> Loaded player {load_player.name}\n'
                               f'\t\t\twins: {load_player.winCount}\n'
                               f'\t\t\tconnections: {load_player.connectionCount}\n'
