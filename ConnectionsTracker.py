@@ -93,32 +93,35 @@ class ConnectionsTrackerClient(Client):
                         self.scored_today = secondField['scored_today']
                         print(f'{get_log_time()}> Got scored today value of {self.scored_today}')
                     else:
+                        player_exists = False
                         for player in self.players:
                             if firstField == player.name:
-                                continue
-                        load_player = self.Player(firstField)
-                        load_player.winCount = secondField['winCount']
-                        load_player.connectionCount = secondField['connectionCount']
-                        load_player.subConnectionCount = secondField['subConnectionCount']
-                        load_player.mistakeCount = secondField['mistakeCount']
-                        load_player.submissionCount = secondField['submissionCount']
-                        load_player.totalGuessCount = secondField['totalGuessCount']
-                        load_player.score = secondField['score']
-                        load_player.registered = secondField['registered']
-                        load_player.completedToday = secondField['completedToday']
-                        load_player.succeededToday = secondField['succeededToday']
-                        self.players.append(load_player)
-                        print(f'{get_log_time()}> Loaded player {load_player.name}\n'
-                              f'\t\t\twins: {load_player.winCount}\n'
-                              f'\t\t\tconnections: {load_player.connectionCount}\n'
-                              f'\t\t\tsubConnections: {load_player.subConnectionCount}\n'
-                              f'\t\t\tmistakes: {load_player.mistakeCount}\n'
-                              f'\t\t\tsubmissions: {load_player.submissionCount}\n'
-                              f'\t\t\ttotalGuesses: {load_player.totalGuessCount}\n'
-                              f'\t\t\tscore: {load_player.score}\n'
-                              f'\t\t\tregistered: {load_player.registered}\n'
-                              f'\t\t\tcompleted: {load_player.completedToday}\n'
-                              f'\t\t\tsucceeded: {load_player.succeededToday}')
+                                player_exists = True
+                                break
+                        if not player_exists:
+                            load_player = self.Player(firstField)
+                            load_player.winCount = secondField['winCount']
+                            load_player.connectionCount = secondField['connectionCount']
+                            load_player.subConnectionCount = secondField['subConnectionCount']
+                            load_player.mistakeCount = secondField['mistakeCount']
+                            load_player.submissionCount = secondField['submissionCount']
+                            load_player.totalGuessCount = secondField['totalGuessCount']
+                            load_player.score = secondField['score']
+                            load_player.registered = secondField['registered']
+                            load_player.completedToday = secondField['completedToday']
+                            load_player.succeededToday = secondField['succeededToday']
+                            self.players.append(load_player)
+                            print(f'{get_log_time()}> Loaded player {load_player.name}\n'
+                                f'\t\t\twins: {load_player.winCount}\n'
+                                f'\t\t\tconnections: {load_player.connectionCount}\n'
+                                f'\t\t\tsubConnections: {load_player.subConnectionCount}\n'
+                                f'\t\t\tmistakes: {load_player.mistakeCount}\n'
+                                f'\t\t\tsubmissions: {load_player.submissionCount}\n'
+                                f'\t\t\ttotalGuesses: {load_player.totalGuessCount}\n'
+                                f'\t\t\tscore: {load_player.score}\n'
+                                f'\t\t\tregistered: {load_player.registered}\n'
+                                f'\t\t\tcompleted: {load_player.completedToday}\n'
+                                f'\t\t\tsucceeded: {load_player.succeededToday}')
                 print(f'{get_log_time()}> Successfully loaded {self.FILENAME}')
 
 
