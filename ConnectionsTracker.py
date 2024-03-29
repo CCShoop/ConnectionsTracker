@@ -47,6 +47,12 @@ def get_sub_cons(player):
     return player.subConnectionCount
 def get_mistakes(player):
     return player.mistakeCount
+def get_win_percent(player):
+    return (player.winCount / player.submissionCount)
+def get_mistake_percent(player):
+    return (player.mistakeCount / player.submissionCount)
+def get_completion_percent(player):
+    return (player.connectionCount / player.submissionCount)
 
 class ConnectionsTrackerClient(Client):
     FILENAME = 'info.json'
@@ -410,52 +416,75 @@ async def deregister_command(interaction: Interaction):
 @client.tree.command(name='stats', description='Show stats for all players.')
 @app_commands.describe(sort_by='Select the stat you want to sort by.')
 @app_commands.describe(show_x_players='Only show the first x number of players.')
-async def stats_command(interaction: Interaction, sort_by:Literal['Wins', 'Submissions', 'Total Guesses', 'Connections', 'Subconnections', 'Mistakes'] = 'Wins', show_x_players:int = 3):
+async def stats_command(interaction: Interaction, sort_by:Literal['Win %', 'Wins', 'Submissions', 'Total Guesses', 'Completion %', 'Connections', 'Subconnections', 'Mistakes %', 'Mistakes'] = 'Win %', show_x_players:int = len(client.players)):
     client.text_channel = interaction.channel
     client.write_json_file()
     players_copy = client.players.copy()
+
     stats = f'Sorting by {sort_by}\n'
-    if sort_by == 'Wins':
+    if sort_by == 'Win %':
+        players_copy.sort(key=get_win_percent, reverse=True)
+    elif sort_by == 'Wins':
         players_copy.sort(key=get_wins, reverse=True)
     elif sort_by == 'Submissions':
         players_copy.sort(key=get_con_submissions, reverse=True)
     elif sort_by == 'Total Guesses':
         players_copy.sort(key=get_tot_guesses, reverse=True)
+    elif sort_by == 'Completion %':
+        players_copy.sort(key=get_completion_percent, reverse=True)
     elif sort_by == 'Connections':
         players_copy.sort(key=get_cons, reverse=True)
     elif sort_by == 'Subconnections':
         players_copy.sort(key=get_sub_cons, reverse=True)
+    elif sort_by == 'Mistake %':
+        players_copy.sort(key=get_mistake_percent)
     elif sort_by == 'Mistakes':
         players_copy.sort(key=get_mistakes)
+
     for player in players_copy:
         if show_x_players == 0:
             break
         show_x_players -= 1
         stats += f'{player.name}\n'
+        win_percent = round((player.winCount / player.submissionCount), ndigits=2)
+        stats += f'\t{win_percent} Win %\n'
+
         if player.winCount == 1:
             stats += f'\t1 Win\n'
         else:
             stats += f'\t{player.winCount} Wins\n'
+
         if player.submissionCount == 1:
             stats += f'\t1 Submission\n'
         else:
             stats += f'\t{player.submissionCount} Submissions\n'
+
         if player.totalGuessCount == 1:
             stats += f'\t1 Total guess\n'
         else:
             stats += f'\t{player.totalGuessCount} Total guesses\n'
+
+        completion_percent = round((player.connectionCount / player.submissionCount) , ndigits=2)
+        stats += f'\t{completion_percent} Completion %\n'
+
         if player.connectionCount == 1:
             stats += f'\t1 Successful connection\n'
         else:
             stats += f'\t{player.connectionCount} Successful connections\n'
+
         if player.subConnectionCount == 1:
             stats += f'\t1 Successful subconnection\n'
         else:
             stats += f'\t{player.subConnectionCount} Successful subconnections\n'
+
+        mistake_percent = round((player.mistakeCount / player.submissionCount), ndigits=2)
+        stats += f'\t{mistake_percent} Mistake %\n'
+
         if player.mistakeCount == 1:
             stats += f'\t1 Mistake\n'
         else:
             stats += f'\t{player.mistakeCount} Mistakes\n'
+
     await interaction.response.send_message(stats)
 
 
