@@ -49,6 +49,8 @@ def get_mistakes(player):
     return player.mistakeCount
 def get_win_percent(player):
     return ((player.winCount / player.submissionCount) * 100)
+def get_avg_guesses(player):
+    return ((player.totalGuessCount / player.submissionCount) * 100)
 def get_mistake_percent(player):
     return ((player.mistakeCount / player.submissionCount) * 100)
 def get_completion_percent(player):
@@ -362,8 +364,6 @@ async def on_message(message: Message):
 
 @client.tree.command(name='register', description='Register for Connections tracking.')
 async def register_command(interaction: Interaction):
-    client.text_channel = interaction.channel
-    client.write_json_file()
     response = ''
     playerFound = False
     for player in client.players:
@@ -388,8 +388,6 @@ async def register_command(interaction: Interaction):
 
 @client.tree.command(name='deregister', description='Deregister from Connections tracking. Use twice to delete saved data.')
 async def deregister_command(interaction: Interaction):
-    client.text_channel = interaction.channel
-    client.write_json_file()
     players_copy = client.players.copy()
     response = ''
     playerFound = False
@@ -413,12 +411,21 @@ async def deregister_command(interaction: Interaction):
     await interaction.response.send_message(response)
 
 
+@client.tree.command(name='bind', description='Set this channel as the text channel for Connections Tracker.')
+async def bind_command(interaction: Interaction):
+    try:
+        client.text_channel = interaction.channel
+        client.write_json_file()
+        await interaction.response.send_message(f'Successfully set text channel for Connections Tracker to {interaction.channel.name}!')
+    except Exception as e:
+        print(f'{get_log_time()}> Failed to set text channel or write json during bind command: {e}')
+        await interaction.response.send_message(f'Failed to set text channel or save config: {e}')
+
+
 @client.tree.command(name='stats', description='Show stats for all players.')
 @app_commands.describe(sort_by='Select the stat you want to sort by.')
 @app_commands.describe(show_x_players='Only show the first x number of players.')
-async def stats_command(interaction: Interaction, sort_by:Literal['Win %', 'Wins', 'Submissions', 'Total Guesses', 'Completion %', 'Connections', 'Subconnections', 'Mistakes %', 'Mistakes'] = 'Win %', show_x_players:int = -1):
-    client.text_channel = interaction.channel
-    client.write_json_file()
+async def stats_command(interaction: Interaction, sort_by:Literal['Win %', 'Wins', 'Submissions', 'Avg. Guesses', 'Total Guesses', 'Completion %', 'Connections', 'Subconnections', 'Mistakes %', 'Mistakes'] = 'Win %', show_x_players:int = -1):
     players_copy = client.players.copy()
     if show_x_players < 1:
         show_x_players = len(players_copy)
@@ -433,6 +440,8 @@ async def stats_command(interaction: Interaction, sort_by:Literal['Win %', 'Wins
         players_copy.sort(key=get_wins, reverse=True)
     elif sort_by == 'Submissions':
         players_copy.sort(key=get_con_submissions, reverse=True)
+    elif sort_by == 'Avg. Guesses':
+        players_copy.sort(key=get_avg_guesses, reverse=True)
     elif sort_by == 'Total Guesses':
         players_copy.sort(key=get_tot_guesses, reverse=True)
     elif sort_by == 'Completion %':
@@ -465,6 +474,9 @@ async def stats_command(interaction: Interaction, sort_by:Literal['Win %', 'Wins
             stats += f'\t1 Submission\n'
         else:
             stats += f'\t{player.submissionCount} Submissions\n'
+
+        avg_guesses = round(get_avg_guesses(player), ndigits=2)
+        stats += f'\t{avg_guesses} Average Guesses per Submission\n'
 
         if player.totalGuessCount == 1:
             stats += f'\t1 Total guess\n'
