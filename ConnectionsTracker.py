@@ -411,6 +411,21 @@ async def deregister_command(interaction: Interaction):
     await interaction.response.send_message(response)
 
 
+@client.tree.command(name='silenceping', description='Stop sending a daily warning ping to a specific user.')
+@app_commands.describe(username='Username of the person to silence pings for. Blank will apply it to whoever enters the command.')
+@app_commands.describe(silence='Whether to silence (true) or unsilence (false) daily reminder pings for a specific user.')
+async def silenceping_command(interaction: Interaction, username: str = interaction.user.name, silence: bool = True):
+    for player in client.players:
+        if player.name.lower() == username.lower():
+            player.silenced = silence
+            if silence:
+                await interaction.response(f'Silenced daily ping for {player.name}.')
+            else:
+                await interaction.response(f'Enabled daily ping for {player.name}.')
+            return
+    await interaction.response(f'Could not find {player.name}.\n\n__Existing players:__\n' + "\n".join([player.name for player in client.players]))
+
+
 @client.tree.command(name='bind', description='Set this channel as the text channel for Connections Tracker.')
 async def bind_command(interaction: Interaction):
     try:
