@@ -416,16 +416,16 @@ async def silenceping_command(interaction: Interaction, username: str = None, si
     for player in client.players:
         if player.name.lower() == username.lower():
             if player.silenced and silence:
-                await interaction.response.send_message(f'Daily ping already silenced for {player.name}.')
+                await interaction.response.send_message(f'One hour warning ping already silenced for {player.name}.')
                 return
             elif not player.silenced and not silence:
-                await interaction.response.send_message(f'Daily ping already enabled for {player.name}.')
+                await interaction.response.send_message(f'One hour warning ping already enabled for {player.name}.')
                 return
             player.silenced = silence
             if silence:
-                await interaction.response.send_message(f'Silenced daily ping for {player.name}.')
+                await interaction.response.send_message(f'Silenced one hour warning ping for {player.name}.')
             else:
-                await interaction.response.send_message(f'Enabled daily ping for {player.name}.')
+                await interaction.response.send_message(f'Enabled one hour warning ping for {player.name}.')
             return
     await interaction.response(f'Could not find {player.name}.\n\n__Existing players:__\n' + "\n".join([player.name for player in client.players]))
 
