@@ -117,6 +117,7 @@ class ConnectionsTrackerClient(Client):
                             load_player.totalGuessCount = secondField['totalGuessCount']
                             load_player.score = secondField['score']
                             load_player.registered = secondField['registered']
+                            load_player.silenced = secondField['silenced']
                             load_player.completedToday = secondField['completedToday']
                             load_player.succeededToday = secondField['succeededToday']
                             self.players.append(load_player)
@@ -129,6 +130,7 @@ class ConnectionsTrackerClient(Client):
                                 f'\t\t\ttotalGuesses: {load_player.totalGuessCount}\n'
                                 f'\t\t\tscore: {load_player.score}\n'
                                 f'\t\t\tregistered: {load_player.registered}\n'
+                                f'\t\t\tsilenced: {load_player.silenced}\n'
                                 f'\t\t\tcompleted: {load_player.completedToday}\n'
                                 f'\t\t\tsucceeded: {load_player.succeededToday}')
                 print(f'{get_log_time()}> Successfully loaded {self.FILENAME}')
@@ -148,6 +150,7 @@ class ConnectionsTrackerClient(Client):
                                  'totalGuessCount': player.totalGuessCount,
                                  'score': player.score,
                                  'registered': player.registered,
+                                 'silenced': player.silenced,
                                  'completedToday': player.completedToday,
                                  'succeededToday': player.succeededToday}
         json_data = json.dumps(data, indent=4)
