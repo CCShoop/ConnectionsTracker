@@ -70,6 +70,7 @@ class ConnectionsTrackerClient(Client):
             self.submissionCount = 0
             self.totalGuessCount = 0
             self.registered = True
+            self.silenced = False
             self.completedToday = False
             self.succeededToday = False
 
@@ -233,13 +234,8 @@ class ConnectionsTrackerClient(Client):
                 await message.add_reaction('🔟')
             if player.succeededToday:
                 await message.add_reaction('👍')
-                # await message.channel.send(f'{message.author.name} made the connections with a score of {player.score}!\n')
             else:
                 await message.add_reaction('👎')
-                # if subConnectionsToday == 1:
-                #     await message.channel.send(f'{message.author.name} made 1 subconnection with a score of {player.score}.\n')
-                # else:
-                #     await message.channel.send(f'{message.author.name} made {subConnectionsToday} subconnections with a score of {player.score}.\n')
         except:
             print(f'{get_log_time()}> User {player.name} submitted invalid result message')
             await message.channel.send(f'{player.name}, you sent a Connections results message with invalid syntax. Please try again.')
@@ -541,7 +537,7 @@ async def midnight_call():
     if not client.sent_warning and not client.scored_today and hour == 23 and minute == 0:
         warning = ''
         for player in client.players:
-            if player.registered and not player.completedToday:
+            if player.registered and not player.completedToday and not player.silenced:
                 user = utils.get(client.users, name=player.name)
                 warning += f'{user.mention} '
         if warning != '':
