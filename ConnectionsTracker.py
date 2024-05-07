@@ -414,7 +414,9 @@ async def deregister_command(interaction: Interaction):
 @client.tree.command(name='silenceping', description='Stop sending a daily warning ping to a specific user.')
 @app_commands.describe(username='Username of the person to silence pings for. Blank will apply it to whoever enters the command.')
 @app_commands.describe(silence='Whether to silence (true) or unsilence (false) daily reminder pings for a specific user.')
-async def silenceping_command(interaction: Interaction, username: str = interaction.user.name, silence: bool = True):
+async def silenceping_command(interaction: Interaction, username: str = None, silence: bool = True):
+    if not username:
+        username = interaction.user.name
     for player in client.players:
         if player.name.lower() == username.lower():
             player.silenced = silence
