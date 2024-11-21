@@ -579,7 +579,7 @@ async def before_warning_call():
     now = datetime.datetime.now().astimezone()
     hr_before_midnight = now.replace(hour=23, minute=0, second=0, microsecond=0)
     # Send warning if we passed 2300 and the bot wasn't running
-    if hr_before_midnight < now:
+    if hr_before_midnight < now and not client.scored_today:
         await warning()
     seconds_until_2300 = (hr_before_midnight - now).total_seconds()
     await asyncio.sleep(seconds_until_2300)
