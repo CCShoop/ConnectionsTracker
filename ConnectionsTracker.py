@@ -17,7 +17,7 @@ logger = logging.getLogger("Connections Tracker")
 logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter(fmt='[Connections] [%(asctime)s] [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
-file_handler = logging.FileHandler('connectionsschedulei.log')
+file_handler = logging.FileHandler('connections.log')
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(formatter)
 
@@ -268,8 +268,7 @@ class ConnectionsTrackerClient(Client):
         logger.info(f'Tallying scores for puzzle #{self.puzzle_number}')
         connections_players = []  # list of players who are registered and completed the connections
         winners = []  # list of winners - the one/those with the highest score
-        results = ''  # the scoreboard to print out
-        results.append(f'CONNECTIONS #{self.puzzle_number} COMPLETE!\n\n**SCOREBOARD:**\n')
+        scoreboard = f'CONNECTIONS #{self.puzzle_number} COMPLETE!\n\n**SCOREBOARD:**\n'
         placeCounter = 2
 
         for player in self.players:
@@ -311,12 +310,12 @@ class ConnectionsTrackerClient(Client):
                 subResult += '!\n'
             else:
                 subResult += '.\n'
-            results += subResult
+            scoreboard += subResult
 
         self.scored_today = True
-        self.last_scored = datetime.datetime.now().astimezone()
+        self.last_scored = datetime.datetime.now().astimezone().replace(microsecond=0)
         self.write_json_file()
-        return results
+        return scoreboard
 
     async def setup_hook(self):
         await self.tree.sync()
@@ -548,17 +547,17 @@ async def stats_command(interaction: Interaction,
 
 
 async def warning():
-    if not client.players:
+    if not client.players or client.sent_warning or client.scored_today:
         return
-    if not client.sent_warning and not client.scored_today:
-        warning = ''
-        for player in client.players:
-            if player.registered and not player.completedToday and not player.silenced:
-                user = utils.get(client.users, name=player.name)
-                warning += f'{user.mention} '
-        if warning != '':
-            await client.text_channel.send(f'{warning}, you have one hour left to do the Connections!')
-        client.sent_warning = True
+    logger.info('It is 23:00, warning registered players who are not silenced and have not submitted results')
+    warning = ''
+    for player in client.players:
+        if player.registered and not player.completedToday and not player.silenced:
+            user = utils.get(client.users, name=player.name)
+            warning += f'{user.mention} '
+    if warning != '':
+        await client.text_channel.send(f'{warning}, you have one hour left to do the Connections!')
+    client.sent_warning = True
 
 
 @tasks.loop(hours=24)
@@ -571,10 +570,14 @@ async def before_warning_call():
     await client.wait_until_ready()
     now = datetime.datetime.now().astimezone()
     hr_before_midnight = now.replace(hour=23, minute=0, second=0, microsecond=0)
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
     # Send warning if we passed 2300 and the bot wasn't running
-    if hr_before_midnight < now and not client.scored_today:
+    if hr_before_midnight < now and now < midnight and not client.scored_today and not client.sent_warning:
+        logger.info('It is after 23:00 but before midnight, sending warning')
         await warning()
+        hr_before_midnight += datetime.timedelta(days=1)
     seconds_until_2300 = (hr_before_midnight - now).total_seconds()
+    logger.info(f'Sleeping for {seconds_until_2300} seconds until 23:00 {hr_before_midnight.isoformat()}')
     await asyncio.sleep(seconds_until_2300)
 
 
@@ -630,9 +633,11 @@ async def before_midnight_call():
     now = datetime.datetime.now().astimezone()
     # Update if the date changed and the bot wasn't running
     if client.last_scored.date() < now.date() and not client.scored_today:
+        logger.info('Last scored date is before today and we have not yet scored today')
         await update()
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
     seconds_until_midnight = (midnight - now).total_seconds()
+    logger.info(f'Sleeping for {seconds_until_midnight} seconds until midnight {midnight.isoformat()}')
     await asyncio.sleep(seconds_until_midnight)
 
 
