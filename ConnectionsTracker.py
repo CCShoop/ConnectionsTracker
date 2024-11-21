@@ -2,6 +2,7 @@
 
 import os
 import json
+import asyncio
 import datetime
 from dotenv import load_dotenv
 from typing import Literal
@@ -35,26 +36,47 @@ def get_log_time():
 
 def get_score(player):
     return player.score
+
+
 def get_wins(player):
     return player.winCount
+
+
 def get_con_submissions(player):
     return player.submissionCount
+
+
 def get_tot_guesses(player):
     return player.totalGuessCount
+
+
 def get_cons(player):
     return player.connectionCount
+
+
 def get_sub_cons(player):
     return player.subConnectionCount
+
+
 def get_mistakes(player):
     return player.mistakeCount
+
+
 def get_win_percent(player):
     return ((player.winCount / player.submissionCount) * 100)
+
+
 def get_avg_guesses(player):
     return ((player.totalGuessCount / player.submissionCount) * 100)
+
+
 def get_mistake_percent(player):
     return ((player.mistakeCount / player.submissionCount) * 100)
+
+
 def get_completion_percent(player):
     return ((player.connectionCount / player.submissionCount) * 100)
+
 
 class ConnectionsTrackerClient(Client):
     FILENAME = 'info.json'
@@ -74,17 +96,16 @@ class ConnectionsTrackerClient(Client):
             self.completedToday = False
             self.succeededToday = False
 
-
     def __init__(self, intents):
         super(ConnectionsTrackerClient, self).__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
         self.text_channel: TextChannel
         self.puzzle_number = 0
+        self.last_scored = datetime.datetime.now().astimezone() - datetime.timedelta(days=1)
         self.scored_today = False
         self.sent_warning = False
         self.midnight_called = False
         self.players = []
-
 
     def read_json_file(self):
         if os.path.exists(self.FILENAME):
@@ -98,6 +119,9 @@ class ConnectionsTrackerClient(Client):
                     elif firstField == 'puzzle_number':
                         self.puzzle_number = secondField['puzzle_number']
                         print(f'{get_log_time()}> Got day number of {self.puzzle_number}')
+                    elif firstField == 'last_scored':
+                        self.last_scored = datetime.datetime.fromisoformat(secondField['last_scored'])
+                        print(f'{get_log_time()}> Got last scored datetime of {self.last_scored.isoformat()}')
                     elif firstField == 'scored_today':
                         self.scored_today = secondField['scored_today']
                         print(f'{get_log_time()}> Got scored today value of {self.scored_today}')
@@ -122,24 +146,24 @@ class ConnectionsTrackerClient(Client):
                             load_player.succeededToday = secondField['succeededToday']
                             self.players.append(load_player)
                             print(f'{get_log_time()}> Loaded player {load_player.name}\n'
-                                f'\t\t\twins: {load_player.winCount}\n'
-                                f'\t\t\tconnections: {load_player.connectionCount}\n'
-                                f'\t\t\tsubConnections: {load_player.subConnectionCount}\n'
-                                f'\t\t\tmistakes: {load_player.mistakeCount}\n'
-                                f'\t\t\tsubmissions: {load_player.submissionCount}\n'
-                                f'\t\t\ttotalGuesses: {load_player.totalGuessCount}\n'
-                                f'\t\t\tscore: {load_player.score}\n'
-                                f'\t\t\tregistered: {load_player.registered}\n'
-                                f'\t\t\tsilenced: {load_player.silenced}\n'
-                                f'\t\t\tcompleted: {load_player.completedToday}\n'
-                                f'\t\t\tsucceeded: {load_player.succeededToday}')
+                                  f'\t\t\twins: {load_player.winCount}\n'
+                                  f'\t\t\tconnections: {load_player.connectionCount}\n'
+                                  f'\t\t\tsubConnections: {load_player.subConnectionCount}\n'
+                                  f'\t\t\tmistakes: {load_player.mistakeCount}\n'
+                                  f'\t\t\tsubmissions: {load_player.submissionCount}\n'
+                                  f'\t\t\ttotalGuesses: {load_player.totalGuessCount}\n'
+                                  f'\t\t\tscore: {load_player.score}\n'
+                                  f'\t\t\tregistered: {load_player.registered}\n'
+                                  f'\t\t\tsilenced: {load_player.silenced}\n'
+                                  f'\t\t\tcompleted: {load_player.completedToday}\n'
+                                  f'\t\t\tsucceeded: {load_player.succeededToday}')
                 print(f'{get_log_time()}> Successfully loaded {self.FILENAME}')
-
 
     def write_json_file(self):
         data = {}
         data['text_channel'] = {'text_channel': self.text_channel.id}
         data['puzzle_number'] = {'puzzle_number': self.puzzle_number}
+        data['last_scored'] = {'last_scored': self.last_scored.isoformat()}
         data['scored_today'] = {'scored_today': self.scored_today}
         for player in self.players:
             data[player.name] = {'winCount': player.winCount,
@@ -157,7 +181,6 @@ class ConnectionsTrackerClient(Client):
         print(f'{get_log_time()}> Writing {self.FILENAME}')
         with open(self.FILENAME, 'w+', encoding='utf-8') as file:
             file.write(json_data)
-
 
     async def process(self, message: Message, player: Player):
         try:
@@ -185,7 +208,7 @@ class ConnectionsTrackerClient(Client):
                     await message.add_reaction('🟨')
                     player.subConnectionCount += 1
                     subConnectionsToday += 1
-                    player.score += 1 # difficulty tweak
+                    player.score += 1  # difficulty tweak
                 elif '🟩🟩🟩🟩' in guess:
                     gotGreen = True
                     await message.add_reaction('🟩')
@@ -239,20 +262,18 @@ class ConnectionsTrackerClient(Client):
                 await message.add_reaction('👍')
             else:
                 await message.add_reaction('👎')
-        except:
+        except Exception:
             print(f'{get_log_time()}> User {player.name} submitted invalid result message')
             await message.channel.send(f'{player.name}, you sent a Connections results message with invalid syntax. Please try again.')
-
 
     def tally_scores(self):
         if not self.players or self.scored_today:
             return ''
 
         print(f'{get_log_time()}> Tallying scores for puzzle #{self.puzzle_number}')
-        connections_players = [] # list of players who are registered and completed the connections
-        winners = [] # list of winners - the one/those with the highest score
-        losers = [] # list of losers - those who didn't win
-        results = [] # list of strings - the scoreboard to print out
+        connections_players = []  # list of players who are registered and completed the connections
+        winners = []  # list of winners - the one/those with the highest score
+        results = []  # list of strings - the scoreboard to print out
         results.append(f'CONNECTIONS #{self.puzzle_number} COMPLETE!\n\n**SCOREBOARD:**\n')
         placeCounter = 2
 
@@ -312,7 +333,8 @@ client = ConnectionsTrackerClient(intents=Intents.all())
 @client.event
 async def on_ready():
     client.read_json_file()
-    checkScored = True
+    if not warning_call.is_running():
+        warning_call.start()
     if not midnight_call.is_running():
         midnight_call.start()
     print(f'{get_log_time()}> {client.user} has connected to Discord!')
@@ -447,7 +469,9 @@ async def bind_command(interaction: Interaction):
 @client.tree.command(name='stats', description='Show stats for all players.')
 @app_commands.describe(sort_by='Select the stat you want to sort by.')
 @app_commands.describe(show_x_players='Only show the first x number of players.')
-async def stats_command(interaction: Interaction, sort_by:Literal['Win %', 'Wins', 'Submissions', 'Avg. Guesses', 'Total Guesses', 'Completion %', 'Connections', 'Subconnections', 'Mistakes %', 'Mistakes'] = 'Win %', show_x_players:int = -1):
+async def stats_command(interaction: Interaction,
+                        sort_by: Literal['Win %', 'Wins', 'Submissions', 'Avg. Guesses', 'Total Guesses', 'Completion %', 'Connections', 'Subconnections', 'Mistakes %', 'Mistakes'] = 'Win %',
+                        show_x_players: int = -1):
     players_copy = client.players.copy()
     if show_x_players < 1:
         show_x_players = len(players_copy)
@@ -488,12 +512,12 @@ async def stats_command(interaction: Interaction, sort_by:Literal['Win %', 'Wins
         stats += f'\t{win_percent} Win %\n'
 
         if player.winCount == 1:
-            stats += f'\t1 Win\n'
+            stats += '\t1 Win\n'
         else:
             stats += f'\t{player.winCount} Wins\n'
 
         if player.submissionCount == 1:
-            stats += f'\t1 Submission\n'
+            stats += '\t1 Submission\n'
         else:
             stats += f'\t{player.submissionCount} Submissions\n'
 
@@ -501,7 +525,7 @@ async def stats_command(interaction: Interaction, sort_by:Literal['Win %', 'Wins
         stats += f'\t{avg_guesses} Average Guesses per Submission\n'
 
         if player.totalGuessCount == 1:
-            stats += f'\t1 Total guess\n'
+            stats += '\t1 Total guess\n'
         else:
             stats += f'\t{player.totalGuessCount} Total guesses\n'
 
@@ -509,12 +533,12 @@ async def stats_command(interaction: Interaction, sort_by:Literal['Win %', 'Wins
         stats += f'\t{completion_percent} Completion %\n'
 
         if player.connectionCount == 1:
-            stats += f'\t1 Successful connection\n'
+            stats += '\t1 Successful connection\n'
         else:
             stats += f'\t{player.connectionCount} Successful connections\n'
 
         if player.subConnectionCount == 1:
-            stats += f'\t1 Successful subconnection\n'
+            stats += '\t1 Successful subconnection\n'
         else:
             stats += f'\t{player.subConnectionCount} Successful subconnections\n'
 
@@ -522,22 +546,17 @@ async def stats_command(interaction: Interaction, sort_by:Literal['Win %', 'Wins
         stats += f'\t{mistake_percent} Mistake %\n'
 
         if player.mistakeCount == 1:
-            stats += f'\t1 Mistake\n'
+            stats += '\t1 Mistake\n'
         else:
             stats += f'\t{player.mistakeCount} Mistakes\n'
 
     await interaction.response.send_message(stats)
 
 
-@tasks.loop(seconds=1)
-async def midnight_call():
+async def warning():
     if not client.players:
         return
-
-    hour, minute = get_time()
-    if client.sent_warning and hour == 23 and minute == 1:
-        client.sent_warning = False
-    if not client.sent_warning and not client.scored_today and hour == 23 and minute == 0:
+    if not client.sent_warning and not client.scored_today:
         warning = ''
         for player in client.players:
             if player.registered and not player.completedToday and not player.silenced:
@@ -547,15 +566,28 @@ async def midnight_call():
             await client.text_channel.send(f'{warning}, you have one hour left to do the Connections!')
         client.sent_warning = True
 
-    if client.midnight_called and hour == 0 and minute == 1:
-        client.midnight_called = False
-        client.write_json_file()
-    if client.midnight_called or hour != 0 or minute != 0:
+
+@tasks.loop(hours=24)
+async def warning_call():
+    await warning()
+
+
+@warning_call.before_loop
+async def before_warning_call():
+    await client.wait_until_ready()
+    now = datetime.datetime.now().astimezone()
+    hr_before_midnight = now.replace(hour=23, minute=0, second=0, microsecond=0)
+    # Send warning if we passed 2300 and the bot wasn't running
+    if hr_before_midnight < now:
+        await warning()
+    seconds_until_2300 = (hr_before_midnight - now).total_seconds()
+    await asyncio.sleep(seconds_until_2300)
+
+
+async def update():
+    if not client.players:
         return
-    client.midnight_called = True
-
     print(f'{get_log_time()}> It is midnight, sending daily scoreboard if unscored and then mentioning registered players')
-
     if not client.scored_today:
         shamed = ''
         for player in client.players:
@@ -587,6 +619,23 @@ async def midnight_call():
     client.puzzle_number += 1
     await client.text_channel.send(f'{everyone}\nIt\'s time to find the Connections #{client.puzzle_number}!\nhttps://www.nytimes.com/games/connections')
     client.write_json_file()
+
+
+@tasks.loop(hours=24)
+async def midnight_call():
+    await update()
+
+
+@midnight_call.before_loop
+async def before_midnight_call():
+    await client.wait_until_ready()
+    now = datetime.datetime.now().astimezone()
+    # Update if the date changed and the bot wasn't running
+    if client.last_scored.date() < now.date() and not client.scored_today:
+        await update()
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
+    seconds_until_midnight = (midnight - now).total_seconds()
+    await asyncio.sleep(seconds_until_midnight)
 
 
 client.run(discord_token)
