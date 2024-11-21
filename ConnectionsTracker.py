@@ -319,6 +319,7 @@ class ConnectionsTrackerClient(Client):
             results.append(subResult)
 
         self.scored_today = True
+        self.last_scored = datetime.datetime.now().astimezone()
         self.write_json_file()
         return results
 
