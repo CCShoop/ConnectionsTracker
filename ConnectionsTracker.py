@@ -2,6 +2,7 @@
 
 import os
 import json
+import logging
 import asyncio
 import datetime
 from dotenv import load_dotenv
@@ -11,27 +12,21 @@ from discord.ext import tasks
 
 load_dotenv()
 
+# Logger setup
+logger = logging.getLogger("Connections Tracker")
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter(fmt='[Connections] [%(asctime)s] [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
-def get_time():
-    ct = str(datetime.datetime.now())
-    hour = int(ct[11:13])
-    minute = int(ct[14:16])
-    return hour, minute
+file_handler = logging.FileHandler('connectionsschedulei.log')
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(formatter)
 
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+console_handler.setFormatter(formatter)
 
-def get_log_time():
-    time = datetime.datetime.now().astimezone()
-    output = ''
-    if time.hour < 10:
-        output += '0'
-    output += f'{time.hour}:'
-    if time.minute < 10:
-        output += '0'
-    output += f'{time.minute}:'
-    if time.second < 10:
-        output += '0'
-    output += f'{time.second}'
-    return output
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 
 def get_score(player):
@@ -110,21 +105,21 @@ class ConnectionsTrackerClient(Client):
     def read_json_file(self):
         if os.path.exists(self.FILENAME):
             with open(self.FILENAME, 'r', encoding='utf-8') as file:
-                print(f'{get_log_time()}> Reading {self.FILENAME}')
+                logger.info(f'Reading {self.FILENAME}')
                 data = json.load(file)
                 for firstField, secondField in data.items():
                     if firstField == 'text_channel':
                         self.text_channel = self.get_channel(int(secondField['text_channel']))
-                        print(f'{get_log_time()}> Got text channel id of {self.text_channel.id}')
+                        logger.info(f'Got text channel id of {self.text_channel.id}')
                     elif firstField == 'puzzle_number':
                         self.puzzle_number = secondField['puzzle_number']
-                        print(f'{get_log_time()}> Got day number of {self.puzzle_number}')
+                        logger.info(f'Got day number of {self.puzzle_number}')
                     elif firstField == 'last_scored':
                         self.last_scored = datetime.datetime.fromisoformat(secondField['last_scored'])
-                        print(f'{get_log_time()}> Got last scored datetime of {self.last_scored.isoformat()}')
+                        logger.info(f'Got last scored datetime of {self.last_scored.isoformat()}')
                     elif firstField == 'scored_today':
                         self.scored_today = secondField['scored_today']
-                        print(f'{get_log_time()}> Got scored today value of {self.scored_today}')
+                        logger.info(f'Got scored today value of {self.scored_today}')
                     else:
                         player_exists = False
                         for player in self.players:
@@ -145,19 +140,19 @@ class ConnectionsTrackerClient(Client):
                             load_player.completedToday = secondField['completedToday']
                             load_player.succeededToday = secondField['succeededToday']
                             self.players.append(load_player)
-                            print(f'{get_log_time()}> Loaded player {load_player.name}\n'
-                                  f'\t\t\twins: {load_player.winCount}\n'
-                                  f'\t\t\tconnections: {load_player.connectionCount}\n'
-                                  f'\t\t\tsubConnections: {load_player.subConnectionCount}\n'
-                                  f'\t\t\tmistakes: {load_player.mistakeCount}\n'
-                                  f'\t\t\tsubmissions: {load_player.submissionCount}\n'
-                                  f'\t\t\ttotalGuesses: {load_player.totalGuessCount}\n'
-                                  f'\t\t\tscore: {load_player.score}\n'
-                                  f'\t\t\tregistered: {load_player.registered}\n'
-                                  f'\t\t\tsilenced: {load_player.silenced}\n'
-                                  f'\t\t\tcompleted: {load_player.completedToday}\n'
-                                  f'\t\t\tsucceeded: {load_player.succeededToday}')
-                print(f'{get_log_time()}> Successfully loaded {self.FILENAME}')
+                            logger.info(f'Loaded player {load_player.name}\n'
+                                        f'\t\t\twins: {load_player.winCount}\n'
+                                        f'\t\t\tconnections: {load_player.connectionCount}\n'
+                                        f'\t\t\tsubConnections: {load_player.subConnectionCount}\n'
+                                        f'\t\t\tmistakes: {load_player.mistakeCount}\n'
+                                        f'\t\t\tsubmissions: {load_player.submissionCount}\n'
+                                        f'\t\t\ttotalGuesses: {load_player.totalGuessCount}\n'
+                                        f'\t\t\tscore: {load_player.score}\n'
+                                        f'\t\t\tregistered: {load_player.registered}\n'
+                                        f'\t\t\tsilenced: {load_player.silenced}\n'
+                                        f'\t\t\tcompleted: {load_player.completedToday}\n'
+                                        f'\t\t\tsucceeded: {load_player.succeededToday}')
+                logger.info(f'Successfully loaded {self.FILENAME}')
 
     def write_json_file(self):
         data = {}
@@ -178,7 +173,7 @@ class ConnectionsTrackerClient(Client):
                                  'completedToday': player.completedToday,
                                  'succeededToday': player.succeededToday}
         json_data = json.dumps(data, indent=4)
-        print(f'{get_log_time()}> Writing {self.FILENAME}')
+        logger.info(f'Writing {self.FILENAME}')
         with open(self.FILENAME, 'w+', encoding='utf-8') as file:
             file.write(json_data)
 
@@ -187,7 +182,7 @@ class ConnectionsTrackerClient(Client):
             parseMsg = []
             for line in message.content.split('\n'):
                 if 'Puzzle #' in line:
-                    print(f'{get_log_time()}> {player.name} submitted results for puzzle #{line.split("#")[1]}')
+                    logger.info(f'{player.name} submitted results for puzzle #{line.split("#")[1]}')
                     puzzleNum = int(line.split('#')[1])
                     if puzzleNum != self.puzzle_number:
                         await message.channel.send(f'The current puzzle # is {self.puzzle_number}. Your submission for puzzle #{puzzleNum} has not been accepted.')
@@ -232,7 +227,7 @@ class ConnectionsTrackerClient(Client):
             if gotYellow and gotGreen and gotBlue and gotPurple:
                 player.connectionCount += 1
                 player.succeededToday = True
-            print(f'{get_log_time()}> Player {player.name} - score: {player.score}, succeeded: {player.succeededToday}')
+            logger.info(f'Player {player.name} - score: {player.score}, succeeded: {player.succeededToday}')
 
             player.completedToday = True
             client.write_json_file()
@@ -263,17 +258,17 @@ class ConnectionsTrackerClient(Client):
             else:
                 await message.add_reaction('👎')
         except Exception:
-            print(f'{get_log_time()}> User {player.name} submitted invalid result message')
+            logger.info(f'User {player.name} submitted invalid result message')
             await message.channel.send(f'{player.name}, you sent a Connections results message with invalid syntax. Please try again.')
 
-    def tally_scores(self):
+    def tally_scores(self) -> str:
         if not self.players or self.scored_today:
             return ''
 
-        print(f'{get_log_time()}> Tallying scores for puzzle #{self.puzzle_number}')
+        logger.info(f'Tallying scores for puzzle #{self.puzzle_number}')
         connections_players = []  # list of players who are registered and completed the connections
         winners = []  # list of winners - the one/those with the highest score
-        results = []  # list of strings - the scoreboard to print out
+        results = ''  # the scoreboard to print out
         results.append(f'CONNECTIONS #{self.puzzle_number} COMPLETE!\n\n**SCOREBOARD:**\n')
         placeCounter = 2
 
@@ -316,7 +311,7 @@ class ConnectionsTrackerClient(Client):
                 subResult += '!\n'
             else:
                 subResult += '.\n'
-            results.append(subResult)
+            results += subResult
 
         self.scored_today = True
         self.last_scored = datetime.datetime.now().astimezone()
@@ -338,7 +333,7 @@ async def on_ready():
         warning_call.start()
     if not midnight_call.is_running():
         midnight_call.start()
-    print(f'{get_log_time()}> {client.user} has connected to Discord!')
+    logger.info(f'{client.user} has connected to Discord!')
 
 
 @client.event
@@ -365,7 +360,7 @@ async def on_message(message: Message):
             return
         # player has already sent results
         if player.completedToday:
-            print(f'{get_log_time()}> {player.name} tried to resubmit results')
+            logger.info(f'{player.name} tried to resubmit results')
             await message.channel.send(f'{player.name}, you have already submitted your results today.')
             return
 
@@ -378,9 +373,7 @@ async def on_message(message: Message):
         if player.registered and not player.completedToday:
             return
     if not client.scored_today:
-        scoreboard = ''
-        for line in client.tally_scores():
-            scoreboard += line
+        scoreboard = client.tally_scores()
         await message.channel.send(scoreboard)
 
 
@@ -391,16 +384,16 @@ async def register_command(interaction: Interaction):
     for player in client.players:
         if interaction.user.name.strip() == player.name.strip():
             if player.registered:
-                print(f'{get_log_time()}> User {interaction.user.name.strip()} attempted to re-register for tracking')
+                logger.info(f'User {interaction.user.name.strip()} attempted to re-register for tracking')
                 response += 'You are already registered for Connections tracking!\n'
             else:
-                print(f'{get_log_time()}> Registering user {interaction.user.name.strip()} for tracking')
+                logger.info(f'Registering user {interaction.user.name.strip()} for tracking')
                 player.registered = True
                 client.write_json_file()
                 response += 'You have been registered for Connections tracking.\n'
             playerFound = True
     if not playerFound:
-        print(f'{get_log_time()}> Registering user {interaction.user.name.strip()} for tracking')
+        logger.info(f'Registering user {interaction.user.name.strip()} for tracking')
         player_obj = client.Player(interaction.user.name.strip())
         client.players.append(player_obj)
         client.write_json_file()
@@ -417,16 +410,16 @@ async def deregister_command(interaction: Interaction):
         if player.name.strip() == interaction.user.name.strip():
             if player.registered:
                 player.registered = False
-                print(f'{get_log_time()}> Deregistered user {player.name}')
+                logger.info(f'Deregistered user {player.name}')
                 response += 'You have been deregistered for Connections tracking. Deregistering a second time will delete your saved data.'
             else:
                 client.players.remove(player)
-                print(f'{get_log_time()}> Deleted data for user {player.name}')
+                logger.info(f'Deleted data for user {player.name}')
                 response += 'Your saved data has been deleted for Connections tracking.'
             client.write_json_file()
             playerFound = True
     if not playerFound:
-        print(f'{get_log_time()}> Non-existant user {interaction.user.name.strip()} attempted to deregister')
+        logger.info(f'Non-existant user {interaction.user.name.strip()} attempted to deregister')
         response += 'You have no saved data for Connections tracking.'
     if not client.players:
         client.scored_today = False
@@ -463,7 +456,7 @@ async def bind_command(interaction: Interaction):
         client.write_json_file()
         await interaction.response.send_message(f'Successfully set text channel for Connections Tracker to {interaction.channel.name}!')
     except Exception as e:
-        print(f'{get_log_time()}> Failed to set text channel or write json during bind command: {e}')
+        logger.info(f'Failed to set text channel or write json during bind command: {e}')
         await interaction.response.send_message(f'Failed to set text channel or save config: {e}')
 
 
@@ -588,37 +581,41 @@ async def before_warning_call():
 async def update():
     if not client.players:
         return
-    print(f'{get_log_time()}> It is midnight, sending daily scoreboard if unscored and then mentioning registered players')
+    logger.info('It is midnight, sending daily scoreboard if unscored and then mentioning registered players')
     if not client.scored_today:
-        shamed = ''
-        for player in client.players:
-            if player.registered and not player.completedToday:
-                user = utils.get(client.users, name=player.name)
-                if user:
-                    shamed += f'{user.mention} '
-                else:
-                    print(f'{get_log_time()}> Failed to mention user {player.name}')
-        if shamed != '':
-            await client.text_channel.send(f'SHAME ON {shamed} FOR NOT DOING THE CONNECTIONS!')
-        scoreboard = ''
-        for line in client.tally_scores():
-            scoreboard += line
-        await client.text_channel.send(scoreboard)
+        try:
+            shamed = ''
+            for player in client.players:
+                if player.registered and not player.completedToday:
+                    user = utils.get(client.users, name=player.name)
+                    if user:
+                        shamed += f'{user.mention} '
+                    else:
+                        logger.info(f'Failed to mention user {player.name}')
+            if shamed != '':
+                await client.text_channel.send(f'SHAME ON {shamed} FOR NOT DOING THE CONNECTIONS!')
+            scoreboard = client.tally_scores()
+            await client.text_channel.send(scoreboard)
+        except Exception as e:
+            logger.exception(f'Error while scoring: {e}')
 
-    client.scored_today = False
-    everyone = ''
-    for player in client.players:
-        player.score = 0
-        player.completedToday = False
-        player.succeededToday = False
-        user = utils.get(client.users, name=player.name)
-        if user:
-            if player.registered:
-                everyone += f'{user.mention} '
-        else:
-            print(f'{get_log_time()}> Failed to mention user {player.name}')
-    client.puzzle_number += 1
-    await client.text_channel.send(f'{everyone}\nIt\'s time to find the Connections #{client.puzzle_number}!\nhttps://www.nytimes.com/games/connections')
+    try:
+        client.scored_today = False
+        everyone = ''
+        for player in client.players:
+            player.score = 0
+            player.completedToday = False
+            player.succeededToday = False
+            user = utils.get(client.users, name=player.name)
+            if user:
+                if player.registered:
+                    everyone += f'{user.mention} '
+            else:
+                logger.info(f'Failed to mention user {player.name}')
+        client.puzzle_number += 1
+        await client.text_channel.send(f'{everyone}\nIt\'s time to find the Connections #{client.puzzle_number}!\nhttps://www.nytimes.com/games/connections')
+    except Exception as e:
+        logger.exception(f'Error while sending out midnight message: {e}')
     client.write_json_file()
 
 
