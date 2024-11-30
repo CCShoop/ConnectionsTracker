@@ -311,10 +311,6 @@ class ConnectionsTrackerClient(Client):
             else:
                 subResult += '.\n'
             scoreboard += subResult
-
-        self.scored_today = True
-        self.last_scored = datetime.datetime.now().astimezone().replace(microsecond=0)
-        self.write_json_file()
         return scoreboard
 
     async def setup_hook(self):
@@ -373,6 +369,9 @@ async def on_message(message: Message):
         if player.registered and not player.completedToday:
             return
     if not client.scored_today:
+        client.scored_today = True
+        client.last_scored = datetime.datetime.now()
+        client.write_json_file()
         scoreboard = client.tally_scores()
         await message.channel.send(scoreboard)
 
@@ -577,32 +576,30 @@ async def before_warning_call():
         logger.info('It is after 23:00 but before midnight, sending warning')
         await warning()
         hr_before_midnight += datetime.timedelta(days=1)
-    seconds_until_2300 = (hr_before_midnight - now).total_seconds() + 5
+    seconds_until_2300 = (hr_before_midnight - now).total_seconds()
     logger.info(f'Sleeping for {seconds_until_2300} seconds until 23:00 {hr_before_midnight.isoformat()}')
     await asyncio.sleep(seconds_until_2300)
 
 
-async def update():
-    if not client.players:
-        return
-    logger.info('It is midnight, sending daily scoreboard if unscored and then mentioning registered players')
-    if not client.scored_today:
-        try:
-            shamed = ''
-            for player in client.players:
-                if player.registered and not player.completedToday:
-                    user = utils.get(client.users, name=player.name)
-                    if user:
-                        shamed += f'{user.mention} '
-                    else:
-                        logger.info(f'Failed to mention user {player.name}')
-            if shamed != '':
-                await client.text_channel.send(f'SHAME ON {shamed} FOR NOT DOING THE CONNECTIONS!')
-            scoreboard = client.tally_scores()
-            await client.text_channel.send(scoreboard)
-        except Exception as e:
-            logger.exception(f'Error while scoring: {e}')
+async def score():
+    try:
+        shamed = ''
+        for player in client.players:
+            if player.registered and not player.completedToday:
+                user = utils.get(client.users, name=player.name)
+                if user:
+                    shamed += f'{user.mention} '
+                else:
+                    logger.info(f'Failed to mention user {player.name}')
+        if shamed != '':
+            await client.text_channel.send(f'SHAME ON {shamed} FOR NOT DOING THE CONNECTIONS!')
+        scoreboard = client.tally_scores()
+        await client.text_channel.send(scoreboard)
+    except Exception as e:
+        logger.exception(f'Error while scoring: {e}')
 
+
+async def update():
     try:
         client.scored_today = False
         client.sent_warning = False
@@ -626,6 +623,13 @@ async def update():
 
 @tasks.loop(hours=24)
 async def midnight_call():
+    if not client.players:
+        return
+    while datetime.datetime.now().astimezone().date() == client.last_scored.date():
+        await asyncio.sleep(1)
+    logger.info('It is midnight, sending daily scoreboard if unscored and then mentioning registered players')
+    if not client.scored_today:
+        await score()
     await update()
 
 
@@ -638,7 +642,7 @@ async def before_midnight_call():
         logger.info('Last scored date is before today and we have not yet scored today')
         await update()
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
-    seconds_until_midnight = (midnight - now).total_seconds() + 5
+    seconds_until_midnight = (midnight - now).total_seconds()
     logger.info(f'Sleeping for {seconds_until_midnight} seconds until midnight {midnight.isoformat()}')
     await asyncio.sleep(seconds_until_midnight)
 
