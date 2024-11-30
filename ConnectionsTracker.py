@@ -576,7 +576,7 @@ async def before_warning_call():
         logger.info('It is after 23:00 but before midnight, sending warning')
         await warning()
         hr_before_midnight += datetime.timedelta(days=1)
-    seconds_until_2300 = (hr_before_midnight - now).total_seconds()
+    seconds_until_2300 = (hr_before_midnight - now).total_seconds() + 5
     logger.info(f'Sleeping for {seconds_until_2300} seconds until 23:00 {hr_before_midnight.isoformat()}')
     await asyncio.sleep(seconds_until_2300)
 
@@ -604,6 +604,7 @@ async def update():
 
     try:
         client.scored_today = False
+        client.sent_warning = False
         everyone = ''
         for player in client.players:
             player.score = 0
@@ -636,7 +637,7 @@ async def before_midnight_call():
         logger.info('Last scored date is before today and we have not yet scored today')
         await update()
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
-    seconds_until_midnight = (midnight - now).total_seconds()
+    seconds_until_midnight = (midnight - now).total_seconds() + 5
     logger.info(f'Sleeping for {seconds_until_midnight} seconds until midnight {midnight.isoformat()}')
     await asyncio.sleep(seconds_until_midnight)
 
