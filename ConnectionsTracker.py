@@ -7,7 +7,7 @@ import asyncio
 import datetime
 from dotenv import load_dotenv
 from typing import Literal
-from discord import app_commands, Intents, Client, Message, Interaction, TextChannel, utils
+from discord import app_commands, Intents, Client, Message, Interaction, TextChannel, utils, Activity, ActivityType
 from discord.ext import tasks
 
 load_dotenv()
@@ -332,6 +332,7 @@ async def on_ready():
         warning_call.start()
     if not midnight_call.is_running():
         midnight_call.start()
+    await client.change_presence(activity=Activity(type=ActivityType.playing, name="Connections"))
     logger.info(f'{client.user} has connected to Discord!')
 
 
