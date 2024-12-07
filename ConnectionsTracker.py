@@ -461,10 +461,6 @@ async def stats_command(interaction: Interaction,
     if show_x_players < 1:
         show_x_players = len(players_copy)
 
-    if show_x_players == len(players_copy):
-        stats = f'Sorting all players by {sort_by}:\n'
-    else:
-        stats = f'Sorting top {show_x_players} players by {sort_by}:\n'
     if sort_by == 'Win %':
         players_copy.sort(key=get_win_percent, reverse=True)
     elif sort_by == 'Wins':
@@ -508,6 +504,7 @@ async def stats_command(interaction: Interaction,
         mistake_percent = round(get_mistake_percent(player), ndigits=2)
         embed.add_field(name="Mistake Percentage", value=f"{mistake_percent}", inline=False)
         embed.add_field(name="Total Mistakes", value=f"{player.mistakeCount}", inline=False)
+        embeds.append(embed)
     await interaction.response.send_message(embeds=embeds)
 
 
