@@ -62,11 +62,11 @@ def get_win_percent(player):
 
 
 def get_avg_guesses(player):
-    return ((player.totalGuessCount / player.submissionCount) * 100)
+    return (player.totalGuessCount / player.submissionCount)
 
 
-def get_mistake_percent(player):
-    return ((player.mistakeCount / player.submissionCount) * 100)
+def get_average_mistakes(player):
+    return (player.mistakeCount / player.submissionCount)
 
 
 def get_completion_percent(player):
@@ -478,7 +478,7 @@ async def stats_command(interaction: Interaction,
     elif sort_by == 'Subconnections':
         players_copy.sort(key=get_sub_cons, reverse=True)
     elif sort_by == 'Mistake %':
-        players_copy.sort(key=get_mistake_percent)
+        players_copy.sort(key=get_average_mistakes)
     elif sort_by == 'Mistakes':
         players_copy.sort(key=get_mistakes)
 
@@ -491,18 +491,18 @@ async def stats_command(interaction: Interaction,
         show_x_players -= 1
         embed = Embed(title=f"{player.name}")
         win_percent = round(get_win_percent(player), ndigits=2)
-        embed.add_field(name="Win Percentage", value=f"{win_percent}", inline=False)
+        embed.add_field(name="Win Percentage", value=f"{win_percent} %", inline=False)
         embed.add_field(name="Total Wins", value=f"{player.winCount}", inline=False)
         embed.add_field(name="Submissions", value=f"{player.submissionCount}", inline=False)
-        avg_guesses = round(get_avg_guesses(player), ndigits=2)
-        embed.add_field(name="Average Guesses", value=f"{avg_guesses}", inline=False)
+        average_guesses = round(get_avg_guesses(player), ndigits=2)
+        embed.add_field(name="Average Guesses", value=f"{average_guesses}", inline=False)
         embed.add_field(name="Total Guesses", value=f"{player.totalGuessCount}", inline=False)
         completion_percent = round(get_completion_percent(player), ndigits=2)
-        embed.add_field(name="Completion Percentage", value=f"{completion_percent}", inline=False)
+        embed.add_field(name="Completion Percentage", value=f"{completion_percent} %", inline=False)
         embed.add_field(name="Total Successful Connections", value=f"{player.connectionCount}", inline=False)
         embed.add_field(name="Total Successful Subconnections", value=f"{player.subConnectionCount}", inline=False)
-        mistake_percent = round(get_mistake_percent(player), ndigits=2)
-        embed.add_field(name="Mistake Percentage", value=f"{mistake_percent}", inline=False)
+        average_mistakes = round(get_average_mistakes(player), ndigits=2)
+        embed.add_field(name="Average Mistakes", value=f"{average_mistakes}", inline=False)
         embed.add_field(name="Total Mistakes", value=f"{player.mistakeCount}", inline=False)
         embeds.append(embed)
     await interaction.response.send_message(embeds=embeds, ephemeral=True)
