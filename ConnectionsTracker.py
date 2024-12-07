@@ -7,7 +7,7 @@ import asyncio
 import datetime
 from dotenv import load_dotenv
 from typing import Literal
-from discord import app_commands, Intents, Client, Message, Interaction, TextChannel, utils, Activity, ActivityType
+from discord import app_commands, Intents, Embed, Color, Client, Message, Interaction, TextChannel, utils, Activity, ActivityType
 from discord.ext import tasks
 
 load_dotenv()
@@ -177,6 +177,13 @@ class ConnectionsTrackerClient(Client):
         with open(self.FILENAME, 'w+', encoding='utf-8') as file:
             file.write(json_data)
 
+    def get_scoreboard_embed(self, scoreboard: list):
+        embed = Embed(title=f"Scoreboard for Connections #{self.puzzle_number}")
+        for score in scoreboard:
+            embed.add_field(name=score[0], value=score[1], inline=False)
+        embed.set_footer(text="Created by Cubic Sphere")
+        return embed
+
     async def process(self, message: Message, player: Player):
         try:
             parseMsg = []
@@ -268,7 +275,7 @@ class ConnectionsTrackerClient(Client):
         logger.info(f'Tallying scores for puzzle #{self.puzzle_number}')
         connections_players = []  # list of players who are registered and completed the connections
         winners = []  # list of winners - the one/those with the highest score
-        scoreboard = f'CONNECTIONS #{self.puzzle_number} COMPLETE!\n\n**SCOREBOARD:**\n'
+        scoreboard = []
         placeCounter = 2
 
         for player in self.players:
@@ -287,30 +294,14 @@ class ConnectionsTrackerClient(Client):
             placeCounter = 1
 
         for player in connections_players:
-            subResult = ''
-            if player in winners:
-                subResult = f'1. {player.name} '
-            else:
-                subResult = f'{placeCounter}. {player.name} '
+            if player not in winners:
                 placeCounter += 1
+            title = f"{placeCounter} ({player.score} points)"
             if player.winCount == 1:
-                subResult += '(1 win) '
+                subResult = f"{player.name} (1 win)"
             else:
-                subResult += f'({player.winCount} wins) '
-            if player.succeededToday:
-                subResult += 'got the connections '
-                if player in winners:
-                    subResult += 'and wins '
-            else:
-                subResult += 'did not get all of the subconnections '
-                if player in winners:
-                    subResult += 'but wins '
-            subResult += f'with a score of {player.score}'
-            if player in winners:
-                subResult += '!\n'
-            else:
-                subResult += '.\n'
-            scoreboard += subResult
+                subResult = f"{player.name} ({player.winCount} wins)"
+            scoreboard.append([title, subResult])
         return scoreboard
 
     async def setup_hook(self):
@@ -373,7 +364,8 @@ async def on_message(message: Message):
         client.last_scored = datetime.datetime.now()
         client.write_json_file()
         scoreboard = client.tally_scores()
-        await message.channel.send(scoreboard)
+        embed = client.get_scoreboard_embed(scoreboard)
+        await client.text_channel.send(embed=embed)
 
 
 @client.tree.command(name='register', description='Register for Connections tracking.')
@@ -494,56 +486,29 @@ async def stats_command(interaction: Interaction,
     elif sort_by == 'Mistakes':
         players_copy.sort(key=get_mistakes)
 
+    embeds = [Embed(title="Connections Stats", color=Color.green())]
     if show_x_players > len(players_copy):
         show_x_players = len(players_copy)
     for player in players_copy:
         if show_x_players <= 0:
             break
         show_x_players -= 1
-        stats += f'{player.name}\n'
+        embed = Embed(title=f"{player.name}")
         win_percent = round(get_win_percent(player), ndigits=2)
-        stats += f'\t{win_percent} Win %\n'
-
-        if player.winCount == 1:
-            stats += '\t1 Win\n'
-        else:
-            stats += f'\t{player.winCount} Wins\n'
-
-        if player.submissionCount == 1:
-            stats += '\t1 Submission\n'
-        else:
-            stats += f'\t{player.submissionCount} Submissions\n'
-
+        embed.add_field(name="Win Percentage", value=f"{win_percent}", inline=False)
+        embed.add_field(name="Total Wins", value=f"{player.winCount}", inline=False)
+        embed.add_field(name="Submissions", value=f"{player.submissionCount}", inline=False)
         avg_guesses = round(get_avg_guesses(player), ndigits=2)
-        stats += f'\t{avg_guesses} Average Guesses per Submission\n'
-
-        if player.totalGuessCount == 1:
-            stats += '\t1 Total guess\n'
-        else:
-            stats += f'\t{player.totalGuessCount} Total guesses\n'
-
+        embed.add_field(name="Average Guesses", value=f"{avg_guesses}", inline=False)
+        embed.add_field(name="Total Guesses", value=f"{player.totalGuessCount}", inline=False)
         completion_percent = round(get_completion_percent(player), ndigits=2)
-        stats += f'\t{completion_percent} Completion %\n'
-
-        if player.connectionCount == 1:
-            stats += '\t1 Successful connection\n'
-        else:
-            stats += f'\t{player.connectionCount} Successful connections\n'
-
-        if player.subConnectionCount == 1:
-            stats += '\t1 Successful subconnection\n'
-        else:
-            stats += f'\t{player.subConnectionCount} Successful subconnections\n'
-
+        embed.add_field(name="Completion Percentage", value=f"{completion_percent}", inline=False)
+        embed.add_field(name="Total Successful Connections", value=f"{player.connectionCount}", inline=False)
+        embed.add_field(name="Total Successful Subconnections", value=f"{player.subConnectionCount}", inline=False)
         mistake_percent = round(get_mistake_percent(player), ndigits=2)
-        stats += f'\t{mistake_percent} Mistake %\n'
-
-        if player.mistakeCount == 1:
-            stats += '\t1 Mistake\n'
-        else:
-            stats += f'\t{player.mistakeCount} Mistakes\n'
-
-    await interaction.response.send_message(stats)
+        embed.add_field(name="Mistake Percentage", value=f"{mistake_percent}", inline=False)
+        embed.add_field(name="Total Mistakes", value=f"{player.mistakeCount}", inline=False)
+    await interaction.response.send_message(embeds=embeds)
 
 
 async def warning():
@@ -594,7 +559,8 @@ async def score():
         if shamed != '':
             await client.text_channel.send(f'SHAME ON {shamed} FOR NOT DOING THE CONNECTIONS!')
         scoreboard = client.tally_scores()
-        await client.text_channel.send(scoreboard)
+        embed = client.get_scoreboard_embed(scoreboard)
+        await client.text_channel.send(embed=embed)
     except Exception as e:
         logger.exception(f'Error while scoring: {e}')
 
@@ -615,7 +581,11 @@ async def update():
             else:
                 logger.info(f'Failed to mention user {player.name}')
         client.puzzle_number += 1
-        await client.text_channel.send(f'{everyone}\nIt\'s time to find the Connections #{client.puzzle_number}!\nhttps://www.nytimes.com/games/connections')
+        embed = Embed(title=f"It's time to find the Connections #{client.puzzle_number}!",
+                      description="[Connections](https://www.nytimes.com/games/connections)",
+                      color=Color.blue())
+        embed.set_thumbnail(url="https://static01.nyt.com/images/2023/08/25/crosswords/alpha-connections-icon-original/alpha-connections-icon-original-smallSquare252.png?format=pjpg&quality=75&auto=webp&disable=upscale")
+        await client.text_channel.send(content=f"{everyone}", embed=embed)
     except Exception as e:
         logger.exception(f'Error while sending out midnight message: {e}')
     client.write_json_file()
