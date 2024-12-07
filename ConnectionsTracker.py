@@ -456,7 +456,8 @@ async def bind_command(interaction: Interaction):
 @app_commands.describe(show_x_players='Only show the first x number of players.')
 async def stats_command(interaction: Interaction,
                         sort_by: Literal['Win %', 'Wins', 'Submissions', 'Avg. Guesses', 'Total Guesses', 'Completion %', 'Connections', 'Subconnections', 'Mistakes %', 'Mistakes'] = 'Win %',
-                        show_x_players: int = -1):
+                        show_x_players: int = -1,
+                        show_unregistered: bool = False):
     players_copy = client.players.copy()
     if show_x_players < 1:
         show_x_players = len(players_copy)
@@ -488,8 +489,11 @@ async def stats_command(interaction: Interaction,
     for player in players_copy:
         if show_x_players <= 0:
             break
+        if not show_unregistered and not player.registered:
+            continue
         show_x_players -= 1
         embed = Embed(title=f"{player.name}")
+        embed.add_field(name="Registered", value=f"{player.registered}", inline=False)
         win_percent = round(get_win_percent(player), ndigits=2)
         embed.add_field(name="Win Percentage", value=f"{win_percent} % of submissions", inline=False)
         embed.add_field(name="Total Wins", value=f"{player.winCount}", inline=False)
