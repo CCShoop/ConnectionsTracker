@@ -505,7 +505,7 @@ async def stats_command(interaction: Interaction,
         embed.add_field(name="Mistake Percentage", value=f"{mistake_percent}", inline=False)
         embed.add_field(name="Total Mistakes", value=f"{player.mistakeCount}", inline=False)
         embeds.append(embed)
-    await interaction.response.send_message(embeds=embeds)
+    await interaction.response.send_message(embeds=embeds, ephemeral=True)
 
 
 async def warning():
