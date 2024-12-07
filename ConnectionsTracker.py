@@ -558,6 +558,7 @@ async def score():
                     logger.info(f'Failed to mention user {player.name}')
         if shamed != '':
             await client.text_channel.send(f'SHAME ON {shamed} FOR NOT DOING THE CONNECTIONS!')
+        client.last_scored = datetime.datetime.now()
         scoreboard = client.tally_scores()
         embed = client.get_scoreboard_embed(scoreboard)
         await client.text_channel.send(embed=embed)
