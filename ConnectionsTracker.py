@@ -178,10 +178,10 @@ class ConnectionsTrackerClient(Client):
             file.write(json_data)
 
     def get_scoreboard_embed(self, scoreboard: list):
-        embed = Embed(title=f"Scoreboard for Connections #{self.puzzle_number}")
+        embed = Embed(title=f"Scoreboard for Connections #{self.puzzle_number}",
+                      color=Color.green())
         for score in scoreboard:
             embed.add_field(name=score[0], value=score[1], inline=False)
-        embed.set_footer(text="Created by Cubic Sphere")
         return embed
 
     async def process(self, message: Message, player: Player):
@@ -276,7 +276,7 @@ class ConnectionsTrackerClient(Client):
         connections_players = []  # list of players who are registered and completed the connections
         winners = []  # list of winners - the one/those with the highest score
         scoreboard = []
-        placeCounter = 2
+        placeCounter = 0
 
         for player in self.players:
             if player.registered and player.completedToday:
@@ -290,13 +290,13 @@ class ConnectionsTrackerClient(Client):
                     winners.append(player)
                 else:
                     break
-        else:
-            placeCounter = 1
 
+        prevScore = -1
         for player in connections_players:
-            if player not in winners:
+            if player.score != prevScore:
                 placeCounter += 1
-            title = f"{placeCounter} ({player.score} points)"
+            prevScore = player.score
+            title = f"{placeCounter}. ({player.score} points)"
             if player.winCount == 1:
                 subResult = f"{player.name} (1 win)"
             else:
@@ -587,6 +587,7 @@ async def update():
                       description="[Connections](https://www.nytimes.com/games/connections)",
                       color=Color.blue())
         embed.set_thumbnail(url="https://static01.nyt.com/images/2023/08/25/crosswords/alpha-connections-icon-original/alpha-connections-icon-original-smallSquare252.png?format=pjpg&quality=75&auto=webp&disable=upscale")
+        embed.set_footer(text="Created by Cubic Sphere")
         await client.text_channel.send(content=f"{everyone}", embed=embed)
     except Exception as e:
         logger.exception(f'Error while sending out midnight message: {e}')
