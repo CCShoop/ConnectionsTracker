@@ -296,7 +296,10 @@ class ConnectionsTrackerClient(Client):
             if player.score != prevScore:
                 placeCounter += 1
             prevScore = player.score
-            title = f"{placeCounter}. ({player.score} points)"
+            if player.score == 1:
+                title = f"{placeCounter}. (1 point)"
+            else:
+                title = f"{placeCounter}. ({player.score} points)"
             if player.winCount == 1:
                 subResult = f"{player.name} (1 win)"
             else:
