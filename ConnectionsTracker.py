@@ -363,12 +363,8 @@ async def on_message(message: Message):
         if player.registered and not player.completedToday:
             return
     if not client.scored_today:
+        await score(midnight=False)
         client.scored_today = True
-        client.last_scored = datetime.datetime.now()
-        client.write_json_file()
-        scoreboard = client.tally_scores()
-        embed = client.get_scoreboard_embed(scoreboard)
-        await client.text_channel.send(embed=embed)
 
 
 @client.tree.command(name='register', description='Register for Connections tracking.')
@@ -550,18 +546,19 @@ async def before_warning_call():
     await asyncio.sleep(seconds_until_2300)
 
 
-async def score():
+async def score(midnight: bool = False):
     try:
-        shamed = ''
-        for player in client.players:
-            if player.registered and not player.completedToday:
-                user = utils.get(client.users, name=player.name)
-                if user:
-                    shamed += f'{user.mention} '
-                else:
-                    logger.info(f'Failed to mention user {player.name}')
-        if shamed != '':
-            await client.text_channel.send(f'SHAME ON {shamed} FOR NOT DOING THE CONNECTIONS!')
+        if midnight:
+            shamed = ''
+            for player in client.players:
+                if player.registered and not player.completedToday:
+                    user = utils.get(client.users, name=player.name)
+                    if user:
+                        shamed += f'{user.mention} '
+                    else:
+                        logger.info(f'Failed to mention user {player.name}')
+            if shamed != '':
+                await client.text_channel.send(f'SHAME ON {shamed} FOR NOT DOING THE CONNECTIONS!')
         client.last_scored = datetime.datetime.now()
         scoreboard = client.tally_scores()
         embed = client.get_scoreboard_embed(scoreboard)
@@ -605,7 +602,7 @@ async def midnight_call():
         await asyncio.sleep(1)
     logger.info('It is midnight, sending daily scoreboard if unscored and then mentioning registered players')
     if not client.scored_today:
-        await score()
+        await score(midnight=True)
     await update()
 
 
