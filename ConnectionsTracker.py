@@ -1,7 +1,6 @@
 '''Written by Cael Shoop.'''
 
 import os
-import json
 import logging
 import asyncio
 import datetime
@@ -9,6 +8,7 @@ from dotenv import load_dotenv
 from typing import Literal
 from discord import app_commands, Intents, Embed, Color, Client, Message, Interaction, TextChannel, utils, Activity, ActivityType
 from discord.ext import tasks
+from persistence import Persistence
 
 load_dotenv()
 
@@ -90,6 +90,7 @@ class ConnectionsTrackerClient(Client):
             self.silenced = False
             self.completedToday = False
             self.succeededToday = False
+            self.missedDays = 0  # consecutive days without submitting results
 
     def __init__(self, intents):
         super(ConnectionsTrackerClient, self).__init__(intents=intents)
@@ -101,58 +102,71 @@ class ConnectionsTrackerClient(Client):
         self.sent_warning = False
         self.midnight_called = False
         self.players = []
+        self.unsubscribe_after_days = 14
+        self.persist = Persistence(self.FILENAME)
 
     def read_json_file(self):
-        if os.path.exists(self.FILENAME):
-            with open(self.FILENAME, 'r', encoding='utf-8') as file:
-                logger.info(f'Reading {self.FILENAME}')
-                data = json.load(file)
-                for firstField, secondField in data.items():
-                    if firstField == 'text_channel':
-                        self.text_channel = self.get_channel(int(secondField['text_channel']))
-                        logger.info(f'Got text channel id of {self.text_channel.id}')
-                    elif firstField == 'puzzle_number':
-                        self.puzzle_number = secondField['puzzle_number']
-                        logger.info(f'Got day number of {self.puzzle_number}')
-                    elif firstField == 'last_scored':
-                        self.last_scored = datetime.datetime.fromisoformat(secondField['last_scored'])
-                        logger.info(f'Got last scored datetime of {self.last_scored.isoformat()}')
-                    elif firstField == 'scored_today':
-                        self.scored_today = secondField['scored_today']
-                        logger.info(f'Got scored today value of {self.scored_today}')
-                    else:
-                        player_exists = False
-                        for player in self.players:
-                            if firstField == player.name:
-                                player_exists = True
-                                break
-                        if not player_exists:
-                            load_player = self.Player(firstField)
-                            load_player.winCount = secondField['winCount']
-                            load_player.connectionCount = secondField['connectionCount']
-                            load_player.subConnectionCount = secondField['subConnectionCount']
-                            load_player.mistakeCount = secondField['mistakeCount']
-                            load_player.submissionCount = secondField['submissionCount']
-                            load_player.totalGuessCount = secondField['totalGuessCount']
-                            load_player.score = secondField['score']
-                            load_player.registered = secondField['registered']
-                            load_player.silenced = secondField['silenced']
-                            load_player.completedToday = secondField['completedToday']
-                            load_player.succeededToday = secondField['succeededToday']
-                            self.players.append(load_player)
-                            logger.info(f'Loaded player {load_player.name}\n'
-                                        f'\t\t\twins: {load_player.winCount}\n'
-                                        f'\t\t\tconnections: {load_player.connectionCount}\n'
-                                        f'\t\t\tsubConnections: {load_player.subConnectionCount}\n'
-                                        f'\t\t\tmistakes: {load_player.mistakeCount}\n'
-                                        f'\t\t\tsubmissions: {load_player.submissionCount}\n'
-                                        f'\t\t\ttotalGuesses: {load_player.totalGuessCount}\n'
-                                        f'\t\t\tscore: {load_player.score}\n'
-                                        f'\t\t\tregistered: {load_player.registered}\n'
-                                        f'\t\t\tsilenced: {load_player.silenced}\n'
-                                        f'\t\t\tcompleted: {load_player.completedToday}\n'
-                                        f'\t\t\tsucceeded: {load_player.succeededToday}')
-                logger.info(f'Successfully loaded {self.FILENAME}')
+        try:
+            data = self.persist.read()
+        except Exception as e:
+            # Move the bad file aside so saving can't overwrite it
+            backup = self.persist.quarantine()
+            logger.critical(f'{self.FILENAME} is unreadable ({e}); moved it to {backup}')
+            return
+        if data is None:
+            return
+        logger.info(f'Reading {self.FILENAME}')
+        for firstField, secondField in data.items():
+            if firstField == 'text_channel':
+                self.text_channel = self.get_channel(int(secondField['text_channel']))
+                logger.info(f'Got text channel id of {self.text_channel.id}')
+            elif firstField == 'puzzle_number':
+                self.puzzle_number = secondField['puzzle_number']
+                logger.info(f'Got day number of {self.puzzle_number}')
+            elif firstField == 'last_scored':
+                self.last_scored = datetime.datetime.fromisoformat(secondField['last_scored'])
+                logger.info(f'Got last scored datetime of {self.last_scored.isoformat()}')
+            elif firstField == 'scored_today':
+                self.scored_today = secondField['scored_today']
+                logger.info(f'Got scored today value of {self.scored_today}')
+            elif firstField == 'unsubscribe_after_days':
+                self.unsubscribe_after_days = secondField['unsubscribe_after_days']
+                logger.info(f'Got unsubscribe after days value of {self.unsubscribe_after_days}')
+            else:
+                player_exists = False
+                for player in self.players:
+                    if firstField == player.name:
+                        player_exists = True
+                        break
+                if not player_exists:
+                    load_player = self.Player(firstField)
+                    load_player.winCount = secondField['winCount']
+                    load_player.connectionCount = secondField['connectionCount']
+                    load_player.subConnectionCount = secondField['subConnectionCount']
+                    load_player.mistakeCount = secondField['mistakeCount']
+                    load_player.submissionCount = secondField['submissionCount']
+                    load_player.totalGuessCount = secondField['totalGuessCount']
+                    load_player.score = secondField['score']
+                    load_player.registered = secondField['registered']
+                    load_player.silenced = secondField['silenced']
+                    load_player.completedToday = secondField['completedToday']
+                    load_player.succeededToday = secondField['succeededToday']
+                    load_player.missedDays = secondField.get('missedDays', 0)
+                    self.players.append(load_player)
+                    logger.info(f'Loaded player {load_player.name}\n'
+                                f'\t\t\twins: {load_player.winCount}\n'
+                                f'\t\t\tconnections: {load_player.connectionCount}\n'
+                                f'\t\t\tsubConnections: {load_player.subConnectionCount}\n'
+                                f'\t\t\tmistakes: {load_player.mistakeCount}\n'
+                                f'\t\t\tsubmissions: {load_player.submissionCount}\n'
+                                f'\t\t\ttotalGuesses: {load_player.totalGuessCount}\n'
+                                f'\t\t\tscore: {load_player.score}\n'
+                                f'\t\t\tregistered: {load_player.registered}\n'
+                                f'\t\t\tsilenced: {load_player.silenced}\n'
+                                f'\t\t\tcompleted: {load_player.completedToday}\n'
+                                f'\t\t\tsucceeded: {load_player.succeededToday}\n'
+                                f'\t\t\tmissed days: {load_player.missedDays}')
+        logger.info(f'Successfully loaded {self.FILENAME}')
 
     def write_json_file(self):
         data = {}
@@ -160,6 +174,7 @@ class ConnectionsTrackerClient(Client):
         data['puzzle_number'] = {'puzzle_number': self.puzzle_number}
         data['last_scored'] = {'last_scored': self.last_scored.isoformat()}
         data['scored_today'] = {'scored_today': self.scored_today}
+        data['unsubscribe_after_days'] = {'unsubscribe_after_days': self.unsubscribe_after_days}
         for player in self.players:
             data[player.name] = {'winCount': player.winCount,
                                  'connectionCount': player.connectionCount,
@@ -171,11 +186,10 @@ class ConnectionsTrackerClient(Client):
                                  'registered': player.registered,
                                  'silenced': player.silenced,
                                  'completedToday': player.completedToday,
-                                 'succeededToday': player.succeededToday}
-        json_data = json.dumps(data, indent=4)
+                                 'succeededToday': player.succeededToday,
+                                 'missedDays': player.missedDays}
         logger.info(f'Writing {self.FILENAME}')
-        with open(self.FILENAME, 'w+', encoding='utf-8') as file:
-            file.write(json_data)
+        self.persist.write(data)
 
     def get_scoreboard_embed(self, scoreboard: list):
         embed = Embed(title=f"Scoreboard for Connections #{self.puzzle_number}",
@@ -379,6 +393,7 @@ async def register_command(interaction: Interaction):
             else:
                 logger.info(f'Registering user {interaction.user.name.strip()} for tracking')
                 player.registered = True
+                player.missedDays = 0
                 client.write_json_file()
                 response += 'You have been registered for Connections tracking.\n'
             playerFound = True
@@ -572,7 +587,18 @@ async def update():
         client.scored_today = False
         client.sent_warning = False
         everyone = ''
+        unsubscribed = []
         for player in client.players:
+            if player.registered:
+                if player.completedToday:
+                    player.missedDays = 0
+                else:
+                    player.missedDays += 1
+                    if player.missedDays >= client.unsubscribe_after_days:
+                        logger.info(f'Unsubscribing {player.name} after {player.missedDays} consecutive days without submitting')
+                        player.registered = False
+                        player.missedDays = 0
+                        unsubscribed.append(player.name)
             player.score = 0
             player.completedToday = False
             player.succeededToday = False
@@ -582,6 +608,8 @@ async def update():
                     everyone += f'{user.mention} '
             else:
                 logger.info(f'Failed to mention user {player.name}')
+        if unsubscribed:
+            await client.text_channel.send(f'{", ".join(unsubscribed)} {"has" if len(unsubscribed) == 1 else "have"} been unsubscribed from Connections tracking after {client.unsubscribe_after_days} consecutive days without submitting results. Use /register to rejoin.')
         client.puzzle_number += 1
         embed = Embed(title=f"It's time to find the Connections #{client.puzzle_number}!",
                       description="[Connections](https://www.nytimes.com/games/connections)",
