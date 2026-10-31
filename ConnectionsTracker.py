@@ -58,18 +58,26 @@ def get_mistakes(player):
 
 
 def get_win_percent(player):
+    if not player.submissionCount:
+        return 0
     return ((player.winCount / player.submissionCount) * 100)
 
 
 def get_avg_guesses(player):
+    if not player.submissionCount:
+        return 0
     return (player.totalGuessCount / player.submissionCount)
 
 
 def get_average_mistakes(player):
+    if not player.submissionCount:
+        return 0
     return (player.mistakeCount / player.submissionCount)
 
 
 def get_completion_percent(player):
+    if not player.submissionCount:
+        return 0
     return ((player.connectionCount / player.submissionCount) * 100)
 
 
@@ -282,9 +290,9 @@ class ConnectionsTrackerClient(Client):
             logger.info(f'User {player.name} submitted invalid result message')
             await message.channel.send(f'{player.name}, you sent a Connections results message with invalid syntax. Please try again.')
 
-    def tally_scores(self) -> str:
+    def tally_scores(self) -> list:
         if not self.players or self.scored_today:
-            return ''
+            return []
 
         logger.info(f'Tallying scores for puzzle #{self.puzzle_number}')
         connections_players = []  # list of players who are registered and completed the connections
@@ -295,6 +303,9 @@ class ConnectionsTrackerClient(Client):
         for player in self.players:
             if player.registered and player.completedToday:
                 connections_players.append(player)
+        if not connections_players:
+            logger.info('No registered players submitted results, nothing to tally')
+            return []
         connections_players.sort(key=get_score, reverse=True)
 
         if connections_players[0].score > 0:
@@ -373,8 +384,11 @@ async def on_message(message: Message):
         # process player's results
         await client.process(message, player)
 
-    for player in client.players:
-        if player.registered and not player.completedToday:
+    registered_players = [player for player in client.players if player.registered]
+    if not registered_players:
+        return
+    for player in registered_players:
+        if not player.completedToday:
             return
     if not client.scored_today:
         await score(midnight=False)
@@ -471,7 +485,7 @@ async def bind_command(interaction: Interaction):
 async def stats_command(interaction: Interaction,
                         sort_by: Literal['Win %', 'Wins', 'Submissions', 'Avg. Guesses', 'Total Guesses', 'Completion %', 'Connections', 'Subconnections', 'Mistakes %', 'Mistakes'] = 'Win %',
                         show_x_players: int = -1,
-                        show_unregistered: bool = False):
+                        show_unregistered: bool = True):
     players_copy = client.players.copy()
     if show_x_players < 1:
         show_x_players = len(players_copy)
@@ -492,7 +506,7 @@ async def stats_command(interaction: Interaction,
         players_copy.sort(key=get_cons, reverse=True)
     elif sort_by == 'Subconnections':
         players_copy.sort(key=get_sub_cons, reverse=True)
-    elif sort_by == 'Mistake %':
+    elif sort_by == 'Mistakes %':
         players_copy.sort(key=get_average_mistakes)
     elif sort_by == 'Mistakes':
         players_copy.sort(key=get_mistakes)
@@ -576,8 +590,9 @@ async def score(midnight: bool = False):
                 await client.text_channel.send(f'SHAME ON {shamed} FOR NOT DOING THE CONNECTIONS #{client.puzzle_number}!')
         client.last_scored = datetime.datetime.now()
         scoreboard = client.tally_scores()
-        embed = client.get_scoreboard_embed(scoreboard)
-        await client.text_channel.send(embed=embed)
+        if scoreboard:
+            embed = client.get_scoreboard_embed(scoreboard)
+            await client.text_channel.send(embed=embed)
     except Exception as e:
         logger.exception(f'Error while scoring: {e}')
 
